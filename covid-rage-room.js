@@ -109,12 +109,13 @@ export class Rage_Room extends Base_Scene {
     }
 
     get_height_at_time(init_height, time) {
-        // approximating gravity as -10
+        let max_bounces = 8;
+        // use -20 for gravity
         let max_height = Math.max(init_height - time, 0);
         let init_velocity = Math.sqrt(40 * max_height);
         let period = 1 / 10 * init_velocity;
         // bounce at most 10 times
-        if ((time + (1 / 2 * period)) / (period) > 10) {
+        if ((time + (1 / 2 * period)) / (period) > max_bounces) {
             return 0;
         }
         let t = (time + (1 / 2 * period)) % (period);
