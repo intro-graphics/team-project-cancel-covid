@@ -72,13 +72,13 @@ class Base_Scene extends Scene {
         if (!context.scratchpad.controls) {
             this.children.push(context.scratchpad.controls = new defs.Movement_Controls());
             // Define the global camera and projection matrices, which are stored in program_state.
-            program_state.set_camera(Mat4.translation(5, -10, -30));
+            program_state.set_camera(Mat4.translation(0, -5, -30));
         }
         program_state.projection_transform = Mat4.perspective(
             Math.PI / 4, context.width / context.height, 1, 100);
 
         // *** Lights: *** Values of vector or point lights.
-        const light_position = vec4(0, 5, 5, 1);
+        const light_position = vec4(0, 10, 10, 1);
         program_state.lights = [new Light(light_position, color(1, 1, 1, 1), 1000)];
     }
 }
@@ -108,12 +108,18 @@ export class Rage_Room extends Base_Scene {
         });
     }
 
-    draw_box(context, program_state, model_transform) {
-        // TODO:  Helper function for requirement 3 (see hint).
-        //        This should make changes to the model_transform matrix, draw the next box, and return the newest model_transform.
-        // Hint:  You can add more parameters for this function, like the desired color, index of the box, etc.
-
-        return model_transform;
+    get_height_at_time(init_height, time) {
+        // approximating gravity as -10
+        let max_height = Math.max(init_height - time, 0);
+        let init_velocity = Math.sqrt(40 * max_height);
+        let period = 1 / 10 * init_velocity;
+        // bounce at most 10 times
+        if ((time + (1 / 2 * period)) / (period) > 10) {
+            return 0;
+        }
+        let t = (time + (1 / 2 * period)) % (period);
+        let h = Math.max(- 10 * t ** 2 + init_velocity * t, 0);
+        return h;
     }
 
     display(context, program_state) {
@@ -121,8 +127,24 @@ export class Rage_Room extends Base_Scene {
         const blue = hex_color("#1a9ffa");
         let model_transform = Mat4.identity();
 
-        // Example for drawing a cube, you can remove this line if needed
+        let initial_height = 10;
+        const t = program_state.animation_time / 1000;
+        let height = this.get_height_at_time(initial_height, t);
+        if (height > 0) {
+            model_transform = model_transform.times(Mat4.translation(0,height,0))
+                .times(Mat4.scale(2,2,2));
+        }
+        else {
+            model_transform = model_transform
+                .times(Mat4.scale(2,2,2));
+        }
         this.shapes.cube.draw(context, program_state, model_transform, this.materials.plastic.override({color:blue}));
+
+        // Example for drawing a cube, you can remove this line if needed
+        model_transform = Mat4.identity();
+        model_transform = model_transform.times(Mat4.translation(0,0,0));
+        this.shapes.cube.draw(context, program_state, model_transform, this.materials.plastic.override({color:blue}));
+
         // TODO:  Draw your entire scene here.  Use this.draw_box( graphics_state, model_transform ) to call your helper.
     }
 }
