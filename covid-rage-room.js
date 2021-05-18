@@ -109,15 +109,20 @@ export class Rage_Room extends Base_Scene {
     }
 
     get_height_at_time(init_height, time) {
-        let max_bounces = 8;
-        // use -20 for gravity
+        // can adjust this
+        let max_bounces = init_height;
+
+        // use -20 for gravity, decrease max height over time
         let max_height = Math.max(init_height - time, 0);
         let init_velocity = Math.sqrt(40 * max_height);
         let period = 1 / 10 * init_velocity;
-        // bounce at most 10 times
+
+        // stop bouncing after max_bounces
         if ((time + (1 / 2 * period)) / (period) > max_bounces) {
             return 0;
         }
+
+        // otherwise, calculate the height at time t
         let t = (time + (1 / 2 * period)) % (period);
         let h = Math.max(- 10 * t ** 2 + init_velocity * t, 0);
         return h;
@@ -131,19 +136,9 @@ export class Rage_Room extends Base_Scene {
         let initial_height = 10;
         const t = program_state.animation_time / 1000;
         let height = this.get_height_at_time(initial_height, t);
-        if (height > 0) {
-            model_transform = model_transform.times(Mat4.translation(0,height,0))
-                .times(Mat4.scale(2,2,2));
-        }
-        else {
-            model_transform = model_transform
-                .times(Mat4.scale(2,2,2));
-        }
-        this.shapes.cube.draw(context, program_state, model_transform, this.materials.plastic.override({color:blue}));
 
-        // Example for drawing a cube, you can remove this line if needed
-        model_transform = Mat4.identity();
-        model_transform = model_transform.times(Mat4.translation(0,0,0));
+        model_transform = model_transform.times(Mat4.translation(0,height,0))
+            .times(Mat4.scale(2,2,2));
         this.shapes.cube.draw(context, program_state, model_transform, this.materials.plastic.override({color:blue}));
 
         // TODO:  Draw your entire scene here.  Use this.draw_box( graphics_state, model_transform ) to call your helper.
