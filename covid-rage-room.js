@@ -113,9 +113,10 @@ export class Rage_Room extends Base_Scene {
         let max_bounces = init_height;
 
         // use -20 for gravity, decrease max height over time
+        const acc = 20;
         let max_height = Math.max(init_height - time, 0);
-        let init_velocity = Math.sqrt(40 * max_height);
-        let period = 1 / 10 * init_velocity;
+        let init_velocity = Math.sqrt(2 * acc * max_height);
+        let period = 2 / acc * init_velocity;
 
         // stop bouncing after max_bounces
         if ((time + (1 / 2 * period)) / (period) > max_bounces) {
@@ -124,7 +125,7 @@ export class Rage_Room extends Base_Scene {
 
         // otherwise, calculate the height at time t
         let t = (time + (1 / 2 * period)) % (period);
-        let h = Math.max(- 10 * t ** 2 + init_velocity * t, 0);
+        let h = Math.max(- 1 / 2 * acc * t ** 2 + init_velocity * t, 0);
         return h;
     }
 
