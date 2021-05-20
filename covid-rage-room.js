@@ -108,23 +108,25 @@ export class Rage_Room extends Base_Scene {
         });
     }
 
-    get_height_at_time(init_height, time) {
+    // returns a height given the initial height and the time elapsed from the initial drop
+    // that simulates a bouncing motion
+    get_height_at_time(init_height, time_elapsed) {
         // can adjust this
         let max_bounces = init_height;
 
         // use -20 for gravity, decrease max height over time
         const acc = 20;
-        let max_height = Math.max(init_height - time, 0);
+        let max_height = Math.max(init_height - time_elapsed, 0);
         let init_velocity = Math.sqrt(2 * acc * max_height);
         let period = 2 / acc * init_velocity;
 
         // stop bouncing after max_bounces
-        if ((time + (1 / 2 * period)) / (period) > max_bounces) {
+        if ((time_elapsed + (1 / 2 * period)) / (period) > max_bounces) {
             return 0;
         }
 
         // otherwise, calculate the height at time t
-        let t = (time + (1 / 2 * period)) % (period);
+        let t = (time_elapsed + (1 / 2 * period)) % (period);
         let h = Math.max(- 1 / 2 * acc * t ** 2 + init_velocity * t, 0);
         return h;
     }
