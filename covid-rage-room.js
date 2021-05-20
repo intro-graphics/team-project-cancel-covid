@@ -29,6 +29,37 @@ class Cube_Outline extends Shape {
         // When a set of lines is used in graphics, you should think of the list entries as
         // broken down into pairs; each pair of vertices will be drawn as a line segment.
         // Note: since the outline is rendered with Basic_shader, you need to redefine the position and color of each vertex
+
+        this.arrays.position = Vector3.cast(
+            [-1, -1, -1], [1, -1, -1],
+            [-1, -1, 1], [1, -1, 1],
+            [1, 1, -1], [-1, 1, -1],
+            [1, 1, 1], [-1, 1, 1],
+            [-1, -1, -1], [-1, -1, 1],
+            [-1, 1, -1], [-1, 1, 1],
+            [1, -1, 1], [1, -1, -1],
+            [1, 1, 1], [1, 1, -1],
+            [-1, -1, -1], [-1, 1, -1],
+            [1, -1, -1], [1, 1, -1],
+            [-1, -1, 1], [-1, 1, 1],
+            [1, -1, 1], [1, 1, 1]);
+
+        this.arrays.color = [
+            color(1,1,1,1), color(1,1,1,1),
+            color(1,1,1,1), color(1,1,1,1),
+            color(1,1,1,1), color(1,1,1,1),
+            color(1,1,1,1), color(1,1,1,1),
+            color(1,1,1,1), color(1,1,1,1),
+            color(1,1,1,1), color(1,1,1,1),
+            color(1,1,1,1), color(1,1,1,1),
+            color(1,1,1,1), color(1,1,1,1),
+            color(1,1,1,1), color(1,1,1,1),
+            color(1,1,1,1), color(1,1,1,1),
+            color(1,1,1,1), color(1,1,1,1),
+            color(1,1,1,1), color(1,1,1,1)
+        ];
+
+        this.indices = false;
     }
 }
 
@@ -140,9 +171,17 @@ export class Rage_Room extends Base_Scene {
         const t = program_state.animation_time / 1000;
         let height = this.get_height_at_time(initial_height, t);
 
-        model_transform = model_transform.times(Mat4.translation(0,height,0))
+        // base rests at 0
+        model_transform = model_transform.times(Mat4.translation(0,height + 2,0))
             .times(Mat4.scale(2,2,2));
         this.shapes.cube.draw(context, program_state, model_transform, this.materials.plastic.override({color:blue}));
+
+        let room_transform = Mat4.identity();
+        room_transform = room_transform.times(Mat4.translation(0,20,0))
+            .times(Mat4.scale(50, 20, 40));
+        this.shapes.outline.draw(context, program_state, room_transform, this.white, "LINES");
+
+
 
         // TODO:  Draw your entire scene here.  Use this.draw_box( graphics_state, model_transform ) to call your helper.
     }
