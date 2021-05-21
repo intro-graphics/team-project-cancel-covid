@@ -104,6 +104,8 @@ class Base_Scene extends Scene {
             this.children.push(context.scratchpad.controls = new defs.Movement_Controls());
             // Define the global camera and projection matrices, which are stored in program_state.
             program_state.set_camera(Mat4.translation(0, -5, -30));
+            let canvas = context.canvas;
+            this.add_mouse_controls(canvas);
         }
         program_state.projection_transform = Mat4.perspective(
             Math.PI / 4, context.width / context.height, 1, 100);
@@ -129,13 +131,33 @@ export class Rage_Room extends Base_Scene {
 
     make_control_panel() {
         // Draw the scene's buttons, setup their actions and keyboard shortcuts, and monitor live measurements.
-        this.key_triggered_button("Change Colors", ["c"], this.set_colors);
-        // Add a button for controlling the scene.
-        this.key_triggered_button("Outline", ["o"], () => {
-            // TODO:  Requirement 5b:  Set a flag here that will toggle your outline on and off
+        this.key_triggered_button("Reset", ["r"], this.set_colors);
+    }
+
+
+    // from discussion 1b slides
+    // adds event listeners for mouse
+    add_mouse_controls(canvas) {
+        this.mouse = {"from_center" : vec(0, 0)};
+        const mouse_position = (e, rect = canvas.getBoundingClientRect()) =>
+            vec((e.clientX - (rect.left + rect.right) / 2) / ((rect.left + rect.right) / 2),
+                (e.clientY - (rect.bottom + rect.top) / 2) / ((rect.bottom + rect.top) / 2));
+
+        document.addEventListener("mouseup", e => {
+            this.mouse.anchor = undefined;
         });
-        this.key_triggered_button("Sit still", ["m"], () => {
-            // TODO:  Requirement 3d:  Set a flag here that will toggle your swaying motion on and off.
+        canvas.addEventListener("mousedown", e => {
+            e.preventDefault();
+            this.mouse.anchor = mouse_position(e);
+            console.log(mouse_position(e));
+        });
+        canvas.addEventListener("mousemove", e => {
+            e.preventDefault();
+            this.mouse.anchor = mouse_position(e);
+        });
+        canvas.addEventListener("mouseup", e => {
+            if (!this.mouse.anchor)
+                this.mouse.from_center.scale_by(0);
         });
     }
 
@@ -165,8 +187,8 @@ export class Rage_Room extends Base_Scene {
     display(context, program_state) {
         super.display(context, program_state);
         const blue = hex_color("#1a9ffa");
-        let model_transform = Mat4.identity();
 
+        let model_transform = Mat4.identity();
         let initial_height = 10;
         const t = program_state.animation_time / 1000;
         let height = this.get_height_at_time(initial_height, t);
