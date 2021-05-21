@@ -71,11 +71,7 @@ class Cube_Single_Strip extends Shape {
 }
 
 
-class Base_Scene extends Scene {
-    /**
-     *  **Base_scene** is a Scene that can be added to any display canvas.
-     *  Setup the shapes, materials, camera, and lighting here.
-     */
+export class Rage_Room extends Scene {
     constructor() {
         // constructor(): Scenes begin by populating initial values like the Shapes and Materials they'll need.
         super();
@@ -95,34 +91,6 @@ class Base_Scene extends Scene {
         this.white = new Material(new defs.Basic_Shader());
     }
 
-    display(context, program_state) {
-        // display():  Called once per frame of animation. Here, the base class's display only does
-        // some initial setup.
-
-        // Setup -- This part sets up the scene's overall camera matrix, projection matrix, and lights:
-        if (!context.scratchpad.controls) {
-            this.children.push(context.scratchpad.controls = new defs.Movement_Controls());
-            // Define the global camera and projection matrices, which are stored in program_state.
-            program_state.set_camera(Mat4.translation(0, -5, -30));
-            let canvas = context.canvas;
-            this.add_mouse_controls(canvas);
-        }
-        program_state.projection_transform = Mat4.perspective(
-            Math.PI / 4, context.width / context.height, 1, 100);
-
-        // *** Lights: *** Values of vector or point lights.
-        const light_position = vec4(0, 10, 10, 1);
-        program_state.lights = [new Light(light_position, color(1, 1, 1, 1), 1000)];
-    }
-}
-
-export class Rage_Room extends Base_Scene {
-    /**
-     * This Scene object can be added to any display canvas.
-     * We isolate that code so it can be experimented with on its own.
-     * This gives you a very small code sandbox for editing a simple scene, and for
-     * experimenting with matrix transformations.
-     */
     set_colors() {
         // TODO:  Create a class member variable to store your cube's colors.
         // Hint:  You might need to create a member variable at somewhere to store the colors, using `this`.
@@ -185,7 +153,23 @@ export class Rage_Room extends Base_Scene {
     }
 
     display(context, program_state) {
-        super.display(context, program_state);
+        // Setup -- This part sets up the scene's overall camera matrix, projection matrix, and lights:
+        if (!context.scratchpad.controls) {
+            this.children.push(context.scratchpad.controls = new defs.Movement_Controls());
+            // Define the global camera and projection matrices, which are stored in program_state.
+            program_state.set_camera(Mat4.translation(0, -5, -30));
+            let canvas = context.canvas;
+            this.add_mouse_controls(canvas);
+        }
+        program_state.projection_transform = Mat4.perspective(
+            Math.PI / 4, context.width / context.height, 1, 100);
+
+        // *** Lights: *** Values of vector or point lights.
+        const light_position = vec4(0, 10, 10, 1);
+        program_state.lights = [new Light(light_position, color(1, 1, 1, 1), 1000)];
+
+
+
         const blue = hex_color("#1a9ffa");
 
         let model_transform = Mat4.identity();
