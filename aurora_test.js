@@ -246,8 +246,8 @@ export class Aurora_Test extends Scene {
 
         let model_transform = Mat4.identity();
         let initial_height = 10;
-        const t = program_state.animation_time / 1000;
-        let height = this.get_height_at_time(initial_height, t);
+        const t = program_state.animation_time
+        let height = this.get_height_at_time(initial_height, t / 1000);
 
         // base rests at 0
         let cube_transform = Mat4.translation(0, 1, 0);
@@ -279,7 +279,6 @@ export class Aurora_Test extends Scene {
         this.shapes.rcube.draw(context, program_state, c_transform, this.materials.wallpaper);
 
 
-        const t = program_state.animation_time;
         if (this.throw_queue.length > 0) {
             for (let i = 0; i < this.throw_queue.length; i++) {
                 let obj = this.throw_queue[i];

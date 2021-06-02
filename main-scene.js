@@ -37,7 +37,7 @@ Object.assign(defs,
             {Text_Demo},
             {Transforms_Sandbox},
             {Rage_Room},
-            {Aurora_Test}),
+            {Aurora_Test},
             {Test});
 
 // ******************** End extra step
