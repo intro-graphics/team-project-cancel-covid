@@ -92,6 +92,7 @@ export class Rage_Room extends Scene {
 
         this.throw_queue = [];
         this.gravity = 20;
+        this.camera;
     }
 
     set_colors() {
@@ -158,8 +159,9 @@ export class Rage_Room extends Scene {
 
     // when mouse is clicked, throw an object
     throw_object(e, pos, context, program_state) {
-        let pos_ndc_far = vec4(pos[0], -pos[1], 1.0, 1.0);
+        let pos_ndc_far = vec4(pos[0], pos[1], 1.0, 1.0);
         let center_ndc_near = vec4(0.0, 0.0, 0.0, 1.0);
+        let direction_ndc = vec4(pos[0], -pos[1], 1.0, 0.0);
         let P = program_state.program_state.projection_transform;
         let V = program_state.program_state.camera_transform;
         let pos_world_far = Mat4.inverse(P.times(V)).times(pos_ndc_far);
@@ -167,12 +169,18 @@ export class Rage_Room extends Scene {
 
         pos_world_far.scale_by(1 / pos_world_far[3]);
         center_world_near.scale_by(1 / center_world_near[3]);
+        let direction_world = pos_world_far.minus(center_world_near);
+
+        console.log(pos_world_far);
+        console.log(center_world_near);
+        console.log(direction_world);
 
         let animation_object = {
             from: center_ndc_near,
             to: pos_world_far,
             start_time: program_state.program_state.animation_time,
             end_time: program_state.program_state.animation_time + 5000,
+            direction: direction_world,
         }
 
         this.throw_queue.push(animation_object);
@@ -184,7 +192,7 @@ export class Rage_Room extends Scene {
         if (!context.scratchpad.controls) {
             this.children.push(context.scratchpad.controls = new defs.Movement_Controls());
             // Define the global camera and projection matrices, which are stored in program_state.
-            program_state.set_camera(Mat4.translation(0, -5, -30));
+            program_state.set_camera(Mat4.translation(0, -5, 0));
 
             let canvas = context.canvas;
             const mouse_position = (e, rect = canvas.getBoundingClientRect()) =>
@@ -193,7 +201,9 @@ export class Rage_Room extends Scene {
             canvas.addEventListener("mousedown", e => {
                 e.preventDefault();
                 this.throw_object(e, mouse_position(e), program_state, context)
-                console.log(mouse_position(e));
+                // console.log(mouse_position(e));
+                let camera_pos = program_state.camera_transform.times(vec4(0.0, 0.0, 0.0, 1.0));
+                console.log(camera_pos[1]);
             });
         }
         program_state.projection_transform = Mat4.perspective(
@@ -208,7 +218,7 @@ export class Rage_Room extends Scene {
         const blue = hex_color("#1a9ffa");
 
         let room_transform = Mat4.identity();
-        room_transform = room_transform.times(Mat4.translation(0,20,0))
+        room_transform = room_transform.times(Mat4.translation(0,20,-20))
             .times(Mat4.scale(50, 20, 40));
         this.shapes.outline.draw(context, program_state, room_transform, this.white, "LINES");
 
@@ -222,6 +232,7 @@ export class Rage_Room extends Scene {
                 let to = obj.to;
                 let start_time = obj.start_time;
                 let end_time = obj.end_time;
+                let direction = obj.direction;
 
                 if (t <= end_time && t >= start_time) {
                     let animation_process = (t - start_time) / (end_time - start_time);
@@ -229,7 +240,20 @@ export class Rage_Room extends Scene {
 
                     position[1] -= 0.05 * this.gravity * ((t - start_time) / 1000) ** 2;
 
-                    let model_trans = Mat4.translation(position[0], position[1], position[2]);
+
+                    let camera_pos = program_state.camera_transform.times(vec4(0.0, 0.0, 0.0, 1.0));
+                    // console.log(camera_pos);
+
+                    let time_elapsed = t - start_time;
+                    // console.log(time_elapsed);
+                    let x_pos = camera_pos[0] + (direction[0] * time_elapsed / 1000);
+                    let y_pos = this.get_height_at_time(camera_pos[1], time_elapsed / 1000) + 2;
+                    let z_pos = camera_pos[2] + (direction[2] * time_elapsed / 1000);
+
+                    // console.log(x_pos);
+                    // console.log(y_pos);
+                    // console.log(z_pos);
+                    let model_trans = Mat4.translation(x_pos, y_pos, z_pos);
                     this.shapes.cube.draw(context,
                         program_state,
                         model_trans,
