@@ -7,7 +7,8 @@ import {Scene_To_Texture_Demo} from "./examples/scene-to-texture-demo.js"
 import {Surfaces_Demo} from "./examples/surfaces-demo.js"
 import {Text_Demo} from "./examples/text-demo.js"
 import {Transforms_Sandbox} from "./examples/transforms-sandbox.js"
-import {Rage_Room} from "./covid-rage-room.js"
+import {Rage_Room} from "./covid_rage_room.js"
+import {Aurora_Test} from "./aurora_test.js"
 // Pull these names into this module's scope for convenience:
 const {
     Vector, Vector3, vec, vec3, vec4, color, Matrix, Mat4, Light, Shape, Material, Shader, Texture, Scene,
@@ -33,7 +34,8 @@ Object.assign(defs,
             {Surfaces_Demo},
             {Text_Demo},
             {Transforms_Sandbox},
-            {Rage_Room});
+            {Rage_Room},
+            {Aurora_Test});
 
 // ******************** End extra step
 

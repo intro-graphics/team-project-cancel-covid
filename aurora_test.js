@@ -71,7 +71,7 @@ class Cube_Single_Strip extends Shape {
 }
 
 
-export class Rage_Room extends Scene {
+export class Aurora_Test extends Scene {
     constructor() {
         // constructor(): Scenes begin by populating initial values like the Shapes and Materials they'll need.
         super();
@@ -92,7 +92,6 @@ export class Rage_Room extends Scene {
 
         this.throw_queue = [];
         this.gravity = 20;
-        this.camera;
     }
 
     set_colors() {
@@ -135,16 +134,16 @@ export class Rage_Room extends Scene {
         });
     }
 
-    // returns a height given the initial height and the time elapsed from the initial drop
-    // that simulates a bouncing motion
-    get_height_at_time(init_height, time_elapsed) {
+    // returns a height given the initial height and the time elapsed (in seconds) from the initial
+    // drop that simulates a bouncing motion
+    get_height_at_time(init_height, init_velocity, time_elapsed) {
         // can adjust this
         let max_bounces = init_height;
 
-        // use -20 for gravity, decrease max height over time
+        // decrease max height over time
         let max_height = Math.max(init_height - time_elapsed, 0);
-        let init_velocity = Math.sqrt(2 * this.gravity * max_height);
-        let period = 2 / this.gravity * init_velocity;
+        let max_velocity = Math.sqrt(2 * this.gravity * max_height);
+        let period = 2 / this.gravity * max_velocity;
 
         // stop bouncing after max_bounces
         if ((time_elapsed + (1 / 2 * period)) / (period) > max_bounces) {
@@ -153,7 +152,7 @@ export class Rage_Room extends Scene {
 
         // otherwise, calculate the height at time t
         let t = (time_elapsed + (1 / 2 * period)) % (period);
-        let h = Math.max(- 1 / 2 * this.gravity * t ** 2 + init_velocity * t, 0);
+        let h = Math.max(- 1 / 2 * this.gravity * t ** 2 + max_velocity * t, 0);
         return h;
     }
 
@@ -161,9 +160,10 @@ export class Rage_Room extends Scene {
     throw_object(e, pos, context, program_state) {
         let pos_ndc_far = vec4(pos[0], pos[1], 1.0, 1.0);
         let center_ndc_near = vec4(0.0, 0.0, 0.0, 1.0);
-        let direction_ndc = vec4(pos[0], -pos[1], 1.0, 0.0);
+
         let P = program_state.program_state.projection_transform;
         let V = program_state.program_state.camera_transform;
+
         let pos_world_far = Mat4.inverse(P.times(V)).times(pos_ndc_far);
         let center_world_near = Mat4.inverse(P.times(V)).times(center_ndc_near);
 
@@ -176,10 +176,8 @@ export class Rage_Room extends Scene {
         console.log(direction_world);
 
         let animation_object = {
-            from: center_ndc_near,
-            to: pos_world_far,
             start_time: program_state.program_state.animation_time,
-            end_time: program_state.program_state.animation_time + 5000,
+            end_time: program_state.program_state.animation_time + 10000,
             direction: direction_world,
         }
 
@@ -228,32 +226,31 @@ export class Rage_Room extends Scene {
             for (let i = 0; i < this.throw_queue.length; i++) {
                 let obj = this.throw_queue[i];
 
-                let from = obj.from;
-                let to = obj.to;
                 let start_time = obj.start_time;
                 let end_time = obj.end_time;
                 let direction = obj.direction;
+                if (t > end_time) {
 
+                }
                 if (t <= end_time && t >= start_time) {
-                    let animation_process = (t - start_time) / (end_time - start_time);
-                    let position = to.times(animation_process).plus(from.times(1 - animation_process))
-
-                    position[1] -= 0.05 * this.gravity * ((t - start_time) / 1000) ** 2;
-
-
                     let camera_pos = program_state.camera_transform.times(vec4(0.0, 0.0, 0.0, 1.0));
                     // console.log(camera_pos);
 
                     let time_elapsed = t - start_time;
                     // console.log(time_elapsed);
                     let x_pos = camera_pos[0] + (direction[0] * time_elapsed / 1000);
-                    let y_pos = this.get_height_at_time(camera_pos[1], time_elapsed / 1000) + 2;
+                    let y_pos = this.get_height_at_time(camera_pos[1],
+                        1,
+                        time_elapsed / 1000) + 2;
                     let z_pos = camera_pos[2] + (direction[2] * time_elapsed / 1000);
+                    // insert collision detection here
 
                     // console.log(x_pos);
                     // console.log(y_pos);
                     // console.log(z_pos);
                     let model_trans = Mat4.translation(x_pos, y_pos, z_pos);
+
+
                     this.shapes.cube.draw(context,
                         program_state,
                         model_trans,
