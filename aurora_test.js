@@ -22,6 +22,24 @@ class Cube extends Shape {
     }
 }
 
+class Reversed_Cube extends Shape {
+    constructor() {
+        super("position", "normal",);
+        // Loop 3 times (for each axis), and inside loop twice (for opposing cube sides):
+        this.arrays.position = Vector3.cast(
+            [-1, -1, -1], [1, -1, -1], [-1, -1, 1], [1, -1, 1], [1, 1, -1], [-1, 1, -1], [1, 1, 1], [-1, 1, 1],
+            [-1, -1, -1], [-1, -1, 1], [-1, 1, -1], [-1, 1, 1], [1, -1, 1], [1, -1, -1], [1, 1, 1], [1, 1, -1],
+            [-1, -1, 1], [1, -1, 1], [-1, 1, 1], [1, 1, 1], [1, -1, -1], [-1, -1, -1], [1, 1, -1], [-1, 1, -1]);
+        this.arrays.normal = Vector3.cast(
+            [0, 1, 0], [0, 1, 0], [0, 1, 0], [0, 1, 0], [0, -1, 0], [0, -1, 0], [0, -1, 0], [0, -1, 0],
+            [1, 0, 0], [1, 0, 0], [1, 0, 0], [1, 0, 0], [-1, 0, 0], [-1, 0, 0], [-1, 0, 0], [-1, 0, 0],
+            [0, 0, -1], [0, 0, -1], [0, 0, -1], [0, 0, -1], [0, 0, 1], [0, 0, 1], [0, 0, 1], [0, 0, 1]);
+        // Arrange the vertices into a square shape in texture space too:
+        this.indices.push(0, 1, 2, 1, 3, 2, 4, 5, 6, 5, 7, 6, 8, 9, 10, 9, 11, 10, 12, 13,
+            14, 13, 15, 14, 16, 17, 18, 17, 19, 18, 20, 21, 22, 21, 23, 22);
+    }
+}
+
 class Cube_Outline extends Shape {
     constructor() {
         super("position", "color");
@@ -80,12 +98,18 @@ export class Aurora_Test extends Scene {
         this.shapes = {
             'cube': new Cube(),
             'outline': new Cube_Outline(),
+            'room': new (defs.Cube.prototype.make_flat_shaded_version()),
+            'wall': new (defs.Square.prototype.make_flat_shaded_version()),
+            'rcube': new Reversed_Cube(),
+            'fcube': new Cube(),
         };
 
         // *** Materials
         this.materials = {
             plastic: new Material(new defs.Phong_Shader(),
                 {ambient: .4, diffusivity: .6, color: hex_color("#ffffff")}),
+            wallpaper: new Material(new defs.Phong_Shader(),
+                {ambient: 0.2, diffusivity: 1, color: hex_color("#c4aa7e")}),
         };
         // The white material and basic shader are used for drawing the outline.
         this.white = new Material(new defs.Basic_Shader());
@@ -208,8 +232,8 @@ export class Aurora_Test extends Scene {
             Math.PI / 4, context.width / context.height, 1, 100);
 
         // *** Lights: *** Values of vector or point lights.
-        const light_position = vec4(0, 10, 10, 1);
-        program_state.lights = [new Light(light_position, color(1, 1, 1, 1), 1000)];
+        const light_position = vec4(0, 20, 8, 1);
+        program_state.lights = [new Light(light_position, color(1, 1, 1, 1), 100)];
 
 
 
@@ -219,6 +243,40 @@ export class Aurora_Test extends Scene {
         room_transform = room_transform.times(Mat4.translation(0,20,-20))
             .times(Mat4.scale(50, 20, 40));
         this.shapes.outline.draw(context, program_state, room_transform, this.white, "LINES");
+
+        let model_transform = Mat4.identity();
+        let initial_height = 10;
+        const t = program_state.animation_time / 1000;
+        let height = this.get_height_at_time(initial_height, t);
+
+        // base rests at 0
+        let cube_transform = Mat4.translation(0, 1, 0);
+        //        model_transform = model_transform.times(Mat4.translation(0,height + 2,0))
+        //  .times(Mat4.scale(2,2,2));
+        this.shapes.cube.draw(context, program_state, cube_transform, this.materials.plastic.override({color:blue}));
+
+        let wall_1_transform = Mat4.translation(8, 0, 0)
+                                //.times(Mat4.scale(20, 20, 1))
+                                .times(Mat4.rotation(Math.PI / 2, 0, 1, 0))
+                                .times(Mat4.scale(20, 10, 1));
+        // this.shapes.wall.draw(context, program_state, wall_1_transform, this.materials.wallpaper);
+        let wall_2_transform = Mat4.translation(-8, 0, 0)
+                                .times(Mat4.rotation(-Math.PI / 2, 0, 1, 0))
+                                .times(Mat4.scale(20, 10, 1));
+        // this.shapes.wall.draw(context, program_state, wall_2_transform, this.materials.wallpaper);
+        let wall_3_transform = Mat4.translation(0, 0, 8)
+                                .times(Mat4.scale(20, 10, 1));
+        // this.shapes.wall.draw(context, program_state, wall_3_transform, this.materials.wallpaper);
+        let wall_4_transform = Mat4.translation(0, 0, 8)
+                                .times(Mat4.rotation(Math.PI / 2, 0, 1, 0))
+                                .times(Mat4.scale(1, 1, 1));
+        // this.shapes.wall.draw(context, program_state, wall_4_transform, this.materials.wallpaper);
+        let outline_transform = Mat4.translation(0,20,0).times(Mat4.scale(30, 20, 30));
+        // this.shapes.outline.draw(context, program_state, outline_transform, this.white, "LINES");
+
+        let c_transform = Mat4.translation(0, 20, 0).times(Mat4.scale(30, 20, 30));
+        // this.shapes.cube.draw(context, program_state, c_transform, this.materials.wallpaper);
+        this.shapes.rcube.draw(context, program_state, c_transform, this.materials.wallpaper);
 
 
         const t = program_state.animation_time;
