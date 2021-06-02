@@ -220,7 +220,8 @@ export class Test extends Simulation {
         if (this.bodies.length === 0) {
             this.bodies.push(new Body(this.shapes.square, this.material.override(color(.5, .5, .5, 1)), vec3(1, 1 + Math.random(), 1))
                 .emplace(Mat4.translation(0, -10, 0)
-                    .times(Mat4.rotation(Math.PI / 2, 1, 0, 0)).times(Mat4.scale(50, 50, 1)),
+                        .times(Mat4.rotation(Math.PI / 2, 1, 0, 0))
+                        .times(Mat4.scale(50, 50, 1)),
                     vec3(0, 0, 0), 0));
         }
 

@@ -187,12 +187,15 @@ export class Aurora_Test extends Scene {
 
         let P = program_state.program_state.projection_transform;
         let V = program_state.program_state.camera_transform;
+        let W = program_state.program_state.camera_inverse;
 
         let pos_world_far = Mat4.inverse(P.times(V)).times(pos_ndc_far);
         let center_world_near = Mat4.inverse(P.times(V)).times(center_ndc_near);
+        let camera_pos = Mat4.inverse(P.times(W)).times(vec4(0.0, 0.0, 0.0, 1.0));
 
         pos_world_far.scale_by(1 / pos_world_far[3]);
         center_world_near.scale_by(1 / center_world_near[3]);
+        camera_pos.scale_by(1 / camera_pos[3]);
         let direction_world = pos_world_far.minus(center_world_near);
 
         console.log(pos_world_far);
@@ -200,6 +203,7 @@ export class Aurora_Test extends Scene {
         console.log(direction_world);
 
         let animation_object = {
+            center: camera_pos,
             start_time: program_state.program_state.animation_time,
             end_time: program_state.program_state.animation_time + 10000,
             direction: direction_world,
@@ -224,8 +228,12 @@ export class Aurora_Test extends Scene {
                 e.preventDefault();
                 this.throw_object(e, mouse_position(e), program_state, context)
                 // console.log(mouse_position(e));
-                let camera_pos = program_state.camera_transform.times(vec4(0.0, 0.0, 0.0, 1.0));
-                console.log(camera_pos[1]);
+                let P = program_state.projection_transform;
+                let V = program_state.camera_transform;
+                let camera_pos = Mat4.inverse(P.times(V)).times(vec4(0.0, 0.0, 0.0, 1.0));
+                camera_pos.scale_by(1 / camera_pos[3]);
+                console.log("camera position");
+                console.log(camera_pos);
             });
         }
         program_state.projection_transform = Mat4.perspective(
@@ -255,34 +263,15 @@ export class Aurora_Test extends Scene {
         //  .times(Mat4.scale(2,2,2));
         this.shapes.cube.draw(context, program_state, cube_transform, this.materials.plastic.override({color:blue}));
 
-        let wall_1_transform = Mat4.translation(8, 0, 0)
-                                //.times(Mat4.scale(20, 20, 1))
-                                .times(Mat4.rotation(Math.PI / 2, 0, 1, 0))
-                                .times(Mat4.scale(20, 10, 1));
-        // this.shapes.wall.draw(context, program_state, wall_1_transform, this.materials.wallpaper);
-        let wall_2_transform = Mat4.translation(-8, 0, 0)
-                                .times(Mat4.rotation(-Math.PI / 2, 0, 1, 0))
-                                .times(Mat4.scale(20, 10, 1));
-        // this.shapes.wall.draw(context, program_state, wall_2_transform, this.materials.wallpaper);
-        let wall_3_transform = Mat4.translation(0, 0, 8)
-                                .times(Mat4.scale(20, 10, 1));
-        // this.shapes.wall.draw(context, program_state, wall_3_transform, this.materials.wallpaper);
-        let wall_4_transform = Mat4.translation(0, 0, 8)
-                                .times(Mat4.rotation(Math.PI / 2, 0, 1, 0))
-                                .times(Mat4.scale(1, 1, 1));
-        // this.shapes.wall.draw(context, program_state, wall_4_transform, this.materials.wallpaper);
-        let outline_transform = Mat4.translation(0,20,0).times(Mat4.scale(30, 20, 30));
-        // this.shapes.outline.draw(context, program_state, outline_transform, this.white, "LINES");
-
         let c_transform = Mat4.translation(0, 20, 0).times(Mat4.scale(30, 20, 30));
         // this.shapes.cube.draw(context, program_state, c_transform, this.materials.wallpaper);
-        this.shapes.rcube.draw(context, program_state, c_transform, this.materials.wallpaper);
 
 
         if (this.throw_queue.length > 0) {
             for (let i = 0; i < this.throw_queue.length; i++) {
                 let obj = this.throw_queue[i];
 
+                let center = obj.center;
                 let start_time = obj.start_time;
                 let end_time = obj.end_time;
                 let direction = obj.direction;
@@ -290,16 +279,19 @@ export class Aurora_Test extends Scene {
 
                 }
                 if (t <= end_time && t >= start_time) {
-                    let camera_pos = program_state.camera_transform.times(vec4(0.0, 0.0, 0.0, 1.0));
+                    let P = program_state.projection_transform;
+                    let V = program_state.camera_inverse;
+                    let camera_pos = Mat4.inverse(P.times(V)).times(vec4(0.0, 0.0, 0.0, 1.0));
+                    camera_pos.scale_by(1 / camera_pos[3]);
                     // console.log(camera_pos);
 
                     let time_elapsed = t - start_time;
                     // console.log(time_elapsed);
-                    let x_pos = camera_pos[0] + (direction[0] * time_elapsed / 1000);
-                    let y_pos = this.get_height_at_time(camera_pos[1],
+                    let x_pos = center[0] + (direction[0] * time_elapsed / 1000);
+                    let y_pos = this.get_height_at_time(center[1],
                         1,
                         time_elapsed / 1000) + 2;
-                    let z_pos = camera_pos[2] + (direction[2] * time_elapsed / 1000);
+                    let z_pos = center[2] + (direction[2] * time_elapsed / 1000);
                     // insert collision detection here
 
                     // console.log(x_pos);
