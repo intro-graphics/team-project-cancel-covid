@@ -89,6 +89,9 @@ export class Rage_Room extends Scene {
         };
         // The white material and basic shader are used for drawing the outline.
         this.white = new Material(new defs.Basic_Shader());
+
+        this.throw_queue = [];
+        this.gravity = 20;
     }
 
     set_colors() {
@@ -105,7 +108,7 @@ export class Rage_Room extends Scene {
 
     // from discussion 1b slides
     // adds event listeners for mouse
-    add_mouse_controls(canvas) {
+    add_mouse_controls(canvas, program_state, context) {
         this.mouse = {"from_center" : vec(0, 0)};
         const mouse_position = (e, rect = canvas.getBoundingClientRect()) =>
             vec((e.clientX - (rect.left + rect.right) / 2) / ((rect.left + rect.right) / 2),
@@ -117,6 +120,8 @@ export class Rage_Room extends Scene {
         canvas.addEventListener("mousedown", e => {
             e.preventDefault();
             this.mouse.anchor = mouse_position(e);
+
+            this.throw_object(e, mouse_position(e), program_state, context)
             console.log(mouse_position(e));
         });
         canvas.addEventListener("mousemove", e => {
@@ -136,10 +141,9 @@ export class Rage_Room extends Scene {
         let max_bounces = init_height;
 
         // use -20 for gravity, decrease max height over time
-        const acc = 20;
         let max_height = Math.max(init_height - time_elapsed, 0);
-        let init_velocity = Math.sqrt(2 * acc * max_height);
-        let period = 2 / acc * init_velocity;
+        let init_velocity = Math.sqrt(2 * this.gravity * max_height);
+        let period = 2 / this.gravity * init_velocity;
 
         // stop bouncing after max_bounces
         if ((time_elapsed + (1 / 2 * period)) / (period) > max_bounces) {
@@ -148,9 +152,32 @@ export class Rage_Room extends Scene {
 
         // otherwise, calculate the height at time t
         let t = (time_elapsed + (1 / 2 * period)) % (period);
-        let h = Math.max(- 1 / 2 * acc * t ** 2 + init_velocity * t, 0);
+        let h = Math.max(- 1 / 2 * this.gravity * t ** 2 + init_velocity * t, 0);
         return h;
     }
+
+    // when mouse is clicked, throw an object
+    throw_object(e, pos, context, program_state) {
+        let pos_ndc_far = vec4(pos[0], -pos[1], 1.0, 1.0);
+        let center_ndc_near = vec4(0.0, 0.0, 0.0, 1.0);
+        let P = program_state.program_state.projection_transform;
+        let V = program_state.program_state.camera_transform;
+        let pos_world_far = Mat4.inverse(P.times(V)).times(pos_ndc_far);
+        let center_world_near = Mat4.inverse(P.times(V)).times(center_ndc_near);
+
+        pos_world_far.scale_by(1 / pos_world_far[3]);
+        center_world_near.scale_by(1 / center_world_near[3]);
+
+        let animation_object = {
+            from: center_ndc_near,
+            to: pos_world_far,
+            start_time: program_state.program_state.animation_time,
+            end_time: program_state.program_state.animation_time + 5000,
+        }
+
+        this.throw_queue.push(animation_object);
+    }
+
 
     display(context, program_state) {
         // Setup -- This part sets up the scene's overall camera matrix, projection matrix, and lights:
@@ -158,8 +185,16 @@ export class Rage_Room extends Scene {
             this.children.push(context.scratchpad.controls = new defs.Movement_Controls());
             // Define the global camera and projection matrices, which are stored in program_state.
             program_state.set_camera(Mat4.translation(0, -5, -30));
+
             let canvas = context.canvas;
-            this.add_mouse_controls(canvas);
+            const mouse_position = (e, rect = canvas.getBoundingClientRect()) =>
+                vec((e.clientX - (rect.left + rect.right) / 2) / ((rect.left + rect.right) / 2),
+                    (e.clientY - (rect.bottom + rect.top) / 2) / ((rect.bottom + rect.top) / 2));
+            canvas.addEventListener("mousedown", e => {
+                e.preventDefault();
+                this.throw_object(e, mouse_position(e), program_state, context)
+                console.log(mouse_position(e));
+            });
         }
         program_state.projection_transform = Mat4.perspective(
             Math.PI / 4, context.width / context.height, 1, 100);
@@ -172,22 +207,36 @@ export class Rage_Room extends Scene {
 
         const blue = hex_color("#1a9ffa");
 
-        let model_transform = Mat4.identity();
-        let initial_height = 10;
-        const t = program_state.animation_time / 1000;
-        let height = this.get_height_at_time(initial_height, t);
-
-        // base rests at 0
-        model_transform = model_transform.times(Mat4.translation(0,height + 2,0))
-            .times(Mat4.scale(2,2,2));
-        this.shapes.cube.draw(context, program_state, model_transform, this.materials.plastic.override({color:blue}));
-
         let room_transform = Mat4.identity();
         room_transform = room_transform.times(Mat4.translation(0,20,0))
             .times(Mat4.scale(50, 20, 40));
         this.shapes.outline.draw(context, program_state, room_transform, this.white, "LINES");
 
 
+        const t = program_state.animation_time;
+        if (this.throw_queue.length > 0) {
+            for (let i = 0; i < this.throw_queue.length; i++) {
+                let obj = this.throw_queue[i];
+
+                let from = obj.from;
+                let to = obj.to;
+                let start_time = obj.start_time;
+                let end_time = obj.end_time;
+
+                if (t <= end_time && t >= start_time) {
+                    let animation_process = (t - start_time) / (end_time - start_time);
+                    let position = to.times(animation_process).plus(from.times(1 - animation_process))
+
+                    position[1] -= 0.05 * this.gravity * ((t - start_time) / 1000) ** 2;
+
+                    let model_trans = Mat4.translation(position[0], position[1], position[2]);
+                    this.shapes.cube.draw(context,
+                        program_state,
+                        model_trans,
+                        this.materials.plastic.override({color:blue}));
+                }
+            }
+        }
 
         // TODO:  Draw your entire scene here.  Use this.draw_box( graphics_state, model_transform ) to call your helper.
     }
