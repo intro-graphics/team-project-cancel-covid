@@ -1,4 +1,4 @@
-import {defs, tiny} from './common.js';
+import {defs, tiny} from './examples/common.js';
 
 // Pull these names into this module's scope for convenience:
 const {vec3, unsafe3, vec4, color, Mat4, Light, Shape, Material, Shader, Texture, Scene} = tiny;
@@ -187,13 +187,19 @@ export class Test_Data {
 }
 
 
-export class Inertia_Demo extends Simulation {
-    // ** Inertia_Demo** demonstration: This scene lets random initial momentums
-    // carry several bodies until they fall due to gravity and bounce.
+export class Test extends Simulation {
+    
     constructor() {
         super();
         this.data = new Test_Data();
         this.shapes = Object.assign({}, this.data.shapes);
+        // Make simpler dummy shapes for representing all other shapes during collisions:
+        this.colliders = [
+            {intersect_test: Body.intersect_sphere, points: new defs.Subdivision_Sphere(1), leeway: .5},
+            {intersect_test: Body.intersect_sphere, points: new defs.Subdivision_Sphere(2), leeway: .3},
+            {intersect_test: Body.intersect_cube, points: new defs.Cube(), leeway: .1}
+        ];
+        this.collider_selection = 0;
         this.shapes.square = new defs.Square();
         const shader = new defs.Fake_Bump_Map(1);
         this.material = new Material(shader, {
@@ -210,20 +216,45 @@ export class Inertia_Demo extends Simulation {
         // update_state():  Override the base time-stepping code to say what this particular
         // scene should do to its bodies every frame -- including applying forces.
         // Generate additional moving bodies if there ever aren't enough:
-        while (this.bodies.length < 150)
-            this.bodies.push(new Body(this.data.random_shape(), this.random_color(), vec3(1, 1 + Math.random(), 1))
+
+        if (this.bodies.length === 0) {
+            this.bodies.push(new Body(this.shapes.square, this.material.override(color(.5, .5, .5, 1)), vec3(1, 1 + Math.random(), 1))
+                .emplace(Mat4.translation(0, -10, 0)
+                    .times(Mat4.rotation(Math.PI / 2, 1, 0, 0)).times(Mat4.scale(50, 50, 1)),
+                    vec3(0, 0, 0), 0));
+        }
+
+        while (this.bodies.length < 2)
+            this.bodies.push(new Body(this.shapes.cube, this.material.override(color(.5, .5, .5, 1)), vec3(1, 1 + Math.random(), 1))
                 .emplace(Mat4.translation(...vec3(0, 15, 0).randomized(10)),
                     vec3(0, -1, 0).randomized(2).normalized().times(3), Math.random()));
 
-        for (let b of this.bodies) {
-            // Gravity on Earth, where 1 unit in world space = 1 meter:
-            b.linear_velocity[1] += dt * -9.8;
-            // If about to fall through floor, reverse y velocity:
-            if (b.center[1] < -8 && b.linear_velocity[1] < 0)
-                b.linear_velocity[1] *= -.8;
-        }
         // Delete bodies that stop or stray too far away:
-        this.bodies = this.bodies.filter(b => b.center.norm() < 50 && b.linear_velocity.norm() > 2);
+        this.bodies = this.bodies.filter(b => b.center.norm() < 50 && b.linear_velocity.norm() > 2 || b.shape === this.shapes.square);
+
+        for (let a of this.bodies) {
+            if (a.shape === this.shapes.square) {
+                continue;
+            }
+            // Gravity on Earth, where 1 unit in world space = 1 meter:
+            a.linear_velocity[1] += dt * -9.8;
+            // If about to fall through floor, reverse y velocity:
+            if (a.center[1] < -8 && a.linear_velocity[1] < 0)
+                a.linear_velocity[1] *= -.8;
+        }
+
+                    
+        const collider = this.colliders[this.collider_selection];
+        // Collider process
+        for (let a of this.bodies) {
+             // Cache the inverse of matrix of body "a" to save time.
+             a.inverse = Mat4.inverse(a.drawn_location);
+             for (let b of this.bodies) {
+                if (!a.check_if_colliding(b, collider))
+                    continue;
+                b.material = this.material.override({color: color(0.5, 0, 0, 1)});
+            }
+        }
     }
 
     display(context, program_state) {
@@ -237,10 +268,12 @@ export class Inertia_Demo extends Simulation {
         }
         program_state.projection_transform = Mat4.perspective(Math.PI / 4, context.width / context.height, 1, 500);
         program_state.lights = [new Light(vec4(0, -5, -10, 1), color(1, 1, 1, 1), 100000)];
+
         // Draw the ground:
-        this.shapes.square.draw(context, program_state, Mat4.translation(0, -10, 0)
-                .times(Mat4.rotation(Math.PI / 2, 1, 0, 0)).times(Mat4.scale(50, 50, 1)),
-            this.material.override(this.data.textures.earth));
+        // this.ground.shape.draw(context, program_state, Mat4.translation(0, -10, 0)
+        //         .times(Mat4.rotation(Math.PI / 2, 1, 0, 0)).times(Mat4.scale(50, 50, 1)),
+        //    this.material.override(this.data.textures.earth));
+        // this.ground.shape.draw(context, program_state, Mat4.translation(0, -10, 0), this.ground.material);
     }
 
     show_explanation(document_element) {
@@ -250,7 +283,6 @@ export class Inertia_Demo extends Simulation {
                                      </p><p>This scene extends class Simulation, which carefully manages stepping simulation time for any scenes that subclass it.  It totally decouples the whole simulation from the frame rate, following the suggestions in the blog post <a href=\"https://gafferongames.com/post/fix_your_timestep/\" target=\"blank\">\"Fix Your Timestep\"</a> by Glenn Fielder.  Buttons allow you to speed up and slow down time to show that the simulation's answers do not change.</p>`;
     }
 }
-
 
 export class Collision_Demo extends Simulation {
     // **Collision_Demo** demonstration: Detect when some flying objects
@@ -348,8 +380,8 @@ export class Collision_Demo extends Simulation {
         // the physical shape that is really being collided with:
         const {points, leeway} = this.colliders[this.collider_selection];
         const size = vec3(1 + leeway, 1 + leeway, 1 + leeway);
-        // for (let b of this.bodies)
-            // points.draw(context, program_state, b.drawn_location.times(Mat4.scale(...size)), this.bright, "LINE_STRIP");
+        for (let b of this.bodies)
+            points.draw(context, program_state, b.drawn_location.times(Mat4.scale(...size)), this.bright, "LINE_STRIP");
     }
 
     show_explanation(document_element) {
