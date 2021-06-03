@@ -315,10 +315,10 @@ export class Test extends Simulation {
                     vec3(0, 0, 0), 0));
         }
 
-        while (this.bodies.length < 6)
-            this.bodies.push(new Body(this.shapes.cube, this.materials.plastic, vec3(1, 1, 1), U, false, 0)
-                .emplace(Mat4.translation(...vec3(0, 15, 0).randomized(10)),
-                    vec3(0, -1, 0).randomized(2).normalized().times(3), Math.random()));
+        // while (this.bodies.length < 6)
+        //    this.bodies.push(new Body(this.shapes.cube, this.materials.plastic, vec3(1, 1, 1), U, false, 0)
+        //        .emplace(Mat4.translation(...vec3(0, 15, 0).randomized(10)),
+        //            vec3(0, -1, 0).randomized(2).normalized().times(3), Math.random()));
 
         // Delete bodies that have lasted for too long;
         this.bodies = this.bodies.filter(b => (!b.debris && b.duration < 100) || (b.debris && b.duration < 10));
@@ -464,6 +464,45 @@ export class Test extends Simulation {
 //         }
     }
 
+    // when mouse is clicked, throw an object
+    throw_object(e, pos, context, program_state) {
+        let pos_ndc_far = vec4(pos[0], pos[1], 1.0, 1.0);
+        let center_ndc_near = vec4(0.0, 0.0, 0.0, 1.0);
+
+        let P = program_state.program_state.projection_transform;
+        let V = program_state.program_state.camera_transform;
+        let W = program_state.program_state.camera_inverse;
+
+        let pos_world_far = Mat4.inverse(P.times(V)).times(pos_ndc_far);
+        let center_world_near = Mat4.inverse(P.times(V)).times(center_ndc_near);
+        let camera_pos = Mat4.inverse(P.times(W)).times(center_ndc_near);
+        let dir = W.times(pos_ndc_far).minus(W.times(center_ndc_near));
+        console.log(dir);
+
+        pos_world_far.scale_by(1 / pos_world_far[3]);
+        center_world_near.scale_by(1 / center_world_near[3]);
+        camera_pos.scale_by(1 / camera_pos[3]);
+        let direction_world = pos_world_far.minus(center_world_near);
+        direction_world.scale_by(1/2);
+        direction_world[1] = -direction_world[1];
+
+        console.log(center_world_near);
+        console.log(direction_world);
+
+        // convert to a translation matrix
+        let a = Mat4.inverse(P.times(W));
+        a[0] = vec4(1, 0, 0, a[0][3]);
+        a[1] = vec4(0, 1, 0, a[1][3]);
+        a[2] = vec4(0, 0, 1, a[2][3]);
+        a[3] = vec4(0, 0, 0, a[3][3]);
+        console.log(a);
+
+        let b = new Body(this.shapes.cube, this.materials.plastic, vec3(1, 1, 1), U, false, 0)
+            .emplace(a, direction_world, 0);
+        this.bodies.push(b);
+        console.log(b);
+    }
+
     display(context, program_state) {
         // display(): Draw everything else in the scene besides the moving bodies.
         super.display(context, program_state);
@@ -472,7 +511,17 @@ export class Test extends Simulation {
             this.children.push(context.scratchpad.controls = new defs.Movement_Controls());
             this.children.push(new defs.Program_State_Viewer());
             // Define the global camera and projection matrices, which are stored in program_state.
-            program_state.set_camera(Mat4.translation(0, -5, -20));
+            program_state.set_camera(Mat4.translation(0, -10, 0));
+
+            // add event listeners
+            let canvas = context.canvas;
+            const mouse_position = (e, rect = canvas.getBoundingClientRect()) =>
+                vec((e.clientX - (rect.left + rect.right) / 2) / ((rect.left + rect.right) / 2),
+                    (e.clientY - (rect.bottom + rect.top) / 2) / ((rect.bottom + rect.top) / 2));
+            canvas.addEventListener("mousedown", e => {
+                e.preventDefault();
+                this.throw_object(e, mouse_position(e), program_state, context);
+            });
         }
         program_state.projection_transform = Mat4.perspective(
             Math.PI / 4, context.width / context.height, 1, 100);
@@ -480,11 +529,6 @@ export class Test extends Simulation {
         // *** Lights: *** Values of vector or point lights.
         const light_position = vec4(0, 20, 8, 1);
         program_state.lights = [new Light(light_position, color(1, 1, 1, 1), 100)];
-
-        const {points, leeway} = this.colliders[this.collider_selection];
-        const size = vec3(1 + leeway, 1 + leeway, 1 + leeway);
-        //for (let b of this.bodies)
-        //    points.draw(context, program_state, b.drawn_location.times(Mat4.scale(...size)), this.materials.bright, "LINE_STRIP");
     }
 
 }
