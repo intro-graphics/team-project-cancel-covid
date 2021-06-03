@@ -235,6 +235,7 @@ export class Aurora_Test extends Scene {
         camera_pos.scale_by(1 / camera_pos[3]);
         let direction_world = pos_world_far.minus(center_world_near);
         direction_world.scale_by(1/2);
+        direction_world[1] = -direction_world[1];
 
         console.log(center_world_near);
         console.log(direction_world);
@@ -247,9 +248,10 @@ export class Aurora_Test extends Scene {
         a[3] = vec4(0, 0, 0, a[3][3]);
         console.log(a);
         let b = new Body(this.shapes.cube, this.materials.plastic, vec3(1, 1, 1))
-            .emplace(a, dir, 0);
+            .emplace(a, direction_world, 0);
         let object = {
             body: b,
+            start_time: program_state.program_state.animation_time,
             end_time: program_state.program_state.animation_time + 10000,
         }
         this.bodies.push(object);
@@ -318,13 +320,39 @@ export class Aurora_Test extends Scene {
         }
 
         this.bodies = this.bodies.filter(b => b.end_time > t);
+        const collider = this.colliders[this.collider_selection];
         if (this.bodies.length > 0) {
             for (let i = 0; i < this.bodies.length; i++) {
-                let obj = this.bodies[i];
+                let obj = this.bodies[i].body;
 
+                // collision detection
+
+                // gravity
+                obj.linear_velocity[1] -= this.gravity * 1/100;
+
+                // hit floor
+                if (obj.center[1] < 1 && obj.linear_velocity[1] < 0) {
+                    obj.linear_velocity[1] *= -.8;
+                }
+                // // hit left wall
+                // if (obj.center[0] < -this.room_size / 2 && obj.linear_velocity[0] < 0) {
+                //     obj.linear_velocity[0] *= -.8;
+                // }
+                // // hit backward wall
+                // if (obj.center[2] > this.room_size / 2 && obj.linear_velocity[2] > 0) {
+                //     obj.linear_velocity[2] *= -.8;
+                // }
+                // // hit forward wall
+                // if (obj.center[2] < -this.room_size / 2 && obj.linear_velocity[2] < 0) {
+                //     console.log("bounce")
+                //     obj.linear_velocity[2] *= -.8;
+                // }
                 // console.log("drew box")
-                obj.body.shape.draw(context, program_state, obj.body.drawn_location, obj.body.material);
-
+                obj.shape.draw(context, program_state, obj.drawn_location, obj.material);
+                obj.advance(1/1000);
+                obj.blend_state(t - this.bodies[i].start_time);
+                // console.log(obj.center);
+                // console.log(obj.drawn_location);
             }
 
         }
