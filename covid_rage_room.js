@@ -188,12 +188,9 @@ export class Rage_Room extends Scene {
         };
         // The white material and basic shader are used for drawing the outline.
         this.white = new Material(new defs.Basic_Shader());
-    }
 
-    set_colors() {
-        // TODO:  Create a class member variable to store your cube's colors.
-        // Hint:  You might need to create a member variable at somewhere to store the colors, using `this`.
-        // Hint2: You can consider add a constructor for class Assignment2, or add member variables in Base_Scene's constructor.
+        this.throw_queue = [];
+        this.gravity = 20;
     }
 
     make_control_panel() {
@@ -256,9 +253,8 @@ export class Rage_Room extends Scene {
         if (!context.scratchpad.controls) {
             this.children.push(context.scratchpad.controls = new defs.Movement_Controls());
             // Define the global camera and projection matrices, which are stored in program_state.
-            program_state.set_camera(Mat4.translation(0, -5, -30));
-            let canvas = context.canvas;
-            this.add_mouse_controls(canvas);
+            program_state.set_camera(Mat4.translation(0, -5, 0));
+
         }
         program_state.projection_transform = Mat4.perspective(
             Math.PI / 4, context.width / context.height, 1, 100);
@@ -266,7 +262,6 @@ export class Rage_Room extends Scene {
         // *** Lights: *** Values of vector or point lights.
         const light_position = vec4(0, 10, 10, 1);
         program_state.lights = [new Light(light_position, color(1, 1, 1, 1), 1000)];
-
 
 
         const blue = hex_color("#fa751a");
@@ -291,5 +286,6 @@ export class Rage_Room extends Scene {
 
 
         // TODO:  Draw your entire scene here.  Use this.draw_box( graphics_state, model_transform ) to call your helper.
+
     }
 }
