@@ -35,9 +35,9 @@ export class Body {
     // **Body** can store and update the properties of a 3D body that incrementally
     // moves from its previous place due to velocities.  It conforms to the
     // approach outlined in the "Fix Your Timestep!" blog post by Glenn Fiedler.
-    constructor(shape, material, size, temporary, debris) {
+    constructor(shape, material, size, temporary, debris, duration) {
         Object.assign(this,
-            {shape, material, size, temporary, debris})
+            {shape, material, size, temporary, debris, duration})
     }
 
     // (within some margin of distance).
@@ -290,7 +290,7 @@ export class Test extends Simulation {
             let floor_transform = Mat4.rotation(Math.PI / 2, 1, 0, 0)
                 .times(Mat4.scale(this.room_size, this.room_size, 1))
                 .times(Mat4.translation(0, 0, -1));
-            this.bodies.push(new Body(this.shapes.square, this.materials.floor, vec3(1, 1 + Math.random(), 1), F, false)
+            this.bodies.push(new Body(this.shapes.square, this.materials.floor, vec3(1, 1 + Math.random(), 1), F, false, 0)
                 .emplace(floor_transform, vec3(0, 0, 0), 0));
 
             // walls
@@ -298,35 +298,40 @@ export class Test extends Simulation {
                 .times(Mat4.translation(0, 0, -1));
 
             // walls along the z-axis
-            this.bodies.push(new Body(this.shapes.square, this.materials.wall, vec3(1, 1 + Math.random(), 1), S, false)
+            this.bodies.push(new Body(this.shapes.square, this.materials.wall, vec3(1, 1 + Math.random(), 1), S, false, 0)
                 .emplace(Mat4.translation(0, this.room_size / 2, this.room_size / 2).times(wall_transform),
                     vec3(0, 0, 0), 0));
-            this.bodies.push(new Body(this.shapes.square, this.materials.wall, vec3(1, 1 + Math.random(), 1), N, false)
+            this.bodies.push(new Body(this.shapes.square, this.materials.wall, vec3(1, 1 + Math.random(), 1), N, false, 0)
                 .emplace(Mat4.translation(0, this.room_size / 2, -this.room_size / 2).times(wall_transform),
                     vec3(0, 0, 0), 0));
             wall_transform = Mat4.rotation(Math.PI / 2, 0, 1, 0).times(wall_transform);
 
             // walls along the x-axis
-            this.bodies.push(new Body(this.shapes.square, this.materials.wall, vec3(1, 1 + Math.random(), 1), E, false)
+            this.bodies.push(new Body(this.shapes.square, this.materials.wall, vec3(1, 1 + Math.random(), 1), E, false, 0)
                 .emplace(Mat4.translation(this.room_size / 2, this.room_size / 2, 0).times(wall_transform),
                     vec3(0, 0, 0), 0));
-            this.bodies.push(new Body(this.shapes.square, this.materials.wall, vec3(1, 1 + Math.random(), 1), W, false)
+            this.bodies.push(new Body(this.shapes.square, this.materials.wall, vec3(1, 1 + Math.random(), 1), W, false, 0)
                 .emplace(Mat4.translation(-this.room_size / 2, this.room_size / 2, 0).times(wall_transform),
                     vec3(0, 0, 0), 0));
         }
 
         while (this.bodies.length < 6)
-            this.bodies.push(new Body(this.shapes.cube, this.materials.plastic, vec3(1, 1, 1), U, false)
+            this.bodies.push(new Body(this.shapes.cube, this.materials.plastic, vec3(1, 1, 1), U, false, 0)
                 .emplace(Mat4.translation(...vec3(0, 15, 0).randomized(10)),
                     vec3(0, -1, 0).randomized(2).normalized().times(3), Math.random()));
 
-        // Delete bodies that stop or stray too far away:
-        this.bodies = this.bodies.filter(b => b.center.norm() < 50 && b.linear_velocity.norm() > 2 || b.temporary !== U);
+        // Delete bodies that have lasted for too long;
+        this.bodies = this.bodies.filter(b => (!b.debris && b.duration < 100) || (b.debris && b.duration < 10));
+
+        // Delete bodies that have become too small;
+        this.bodies = this.bodies.filter(b => b.size.dot(b.size) > 0.001);
+
 
         for (let a of this.bodies) {
             if (a.temporary !== U) {
                 continue;
             }
+            a.duration += dt;
             // Gravity on Earth, where 1 unit in world space = 1 meter:
             a.linear_velocity[1] += dt * -9.8;
         }
@@ -396,7 +401,7 @@ export class Test extends Simulation {
                     // Shattering process
                     let i = 0;
                     for (i = 0; i < 4; i++) {
-                        this.bodies.push(new Body(this.shapes.cube, this.materials.plastic, s.times(1/4), U, true)
+                        this.bodies.push(new Body(this.shapes.cube, this.materials.plastic, s.times(1/4), U, true, 0)
                             .emplace(b.drawn_location,
                                 vec3(0, 1, 0).randomized(2).normalized().times(3), Math.random()));
                     }
@@ -476,15 +481,10 @@ export class Test extends Simulation {
         const light_position = vec4(0, 20, 8, 1);
         program_state.lights = [new Light(light_position, color(1, 1, 1, 1), 100)];
 
-        // Draw the ground:
-        // this.ground.shape.draw(context, program_state, Mat4.translation(0, -10, 0)
-        //         .times(Mat4.rotation(Math.PI / 2, 1, 0, 0)).times(Mat4.scale(50, 50, 1)),
-        //    this.material.override(this.data.textures.earth));
-        // this.ground.shape.draw(context, program_state, Mat4.translation(0, -10, 0), this.ground.material);
         const {points, leeway} = this.colliders[this.collider_selection];
         const size = vec3(1 + leeway, 1 + leeway, 1 + leeway);
-        for (let b of this.bodies)
-            points.draw(context, program_state, b.drawn_location.times(Mat4.scale(...size)), this.materials.bright, "LINE_STRIP");
+        //for (let b of this.bodies)
+        //    points.draw(context, program_state, b.drawn_location.times(Mat4.scale(...size)), this.materials.bright, "LINE_STRIP");
     }
 
 }
