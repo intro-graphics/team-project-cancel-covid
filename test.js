@@ -379,7 +379,7 @@ export class Test extends Simulation {
 }
 
 
-export class Aurora_Test extends Simulation {
+class Aurora_Test extends Simulation {
     constructor() {
         // constructor(): Scenes begin by populating initial values like the Shapes and Materials they'll need.
         super();
