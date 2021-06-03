@@ -136,6 +136,14 @@ export class Aurora_Test extends Scene {
             bright: new Material(new defs.Phong_Shader(), {
                 color: color(0, 1, 0, .5), ambient: 1
             }),
+            floor: new Material(new defs.Phong_Shader(1), {
+                ambient: .4, color: color(.4, .8, .4, 1),
+                texture: this.textures.stars
+            }),
+            wall: new Material(new defs.Phong_Shader(1), {
+                ambient: .4, color: color(.4, .8, .4, 1),
+                texture: this.textures.stars
+            }),
         };
 
         // Make simpler dummy shapes for representing all other shapes during collisions:
@@ -146,10 +154,11 @@ export class Aurora_Test extends Scene {
         ];
 
         this.collider_selection = 0;
+        this.gravity = 20;
+        this.room_size = 75;
 
         this.bodies = [];
-        this.throw_queue = [];
-        this.gravity = 20;
+        this.walls = [];
     }
 
     make_control_panel() {
@@ -255,6 +264,7 @@ export class Aurora_Test extends Scene {
             // Define the global camera and projection matrices, which are stored in program_state.
             program_state.set_camera(Mat4.translation(0, -5, 0));
 
+            // add event listeners
             let canvas = context.canvas;
             const mouse_position = (e, rect = canvas.getBoundingClientRect()) =>
                 vec((e.clientX - (rect.left + rect.right) / 2) / ((rect.left + rect.right) / 2),
@@ -263,6 +273,32 @@ export class Aurora_Test extends Scene {
                 e.preventDefault();
                 this.throw_object(e, mouse_position(e), program_state, context);
             });
+
+            // create room
+            // floor
+            let floor_transform = Mat4.rotation(Math.PI / 2, 1, 0, 0)
+                .times(Mat4.scale(this.room_size, this.room_size, 1))
+                .times(Mat4.translation(0, 0, -1));
+            this.walls.push(new Body(this.shapes.square, this.materials.floor, vec3(1, 1 + Math.random(), 1))
+                .emplace(floor_transform, vec3(0, 0, 0), 0));
+
+            // walls
+            let wall_transform = Mat4.scale(this.room_size, this.room_size, 1)
+                .times(Mat4.translation(0, 0, -1));
+            this.walls.push(new Body(this.shapes.square, this.materials.wall, vec3(1, 1 + Math.random(), 1))
+                .emplace(Mat4.translation(0, this.room_size / 2, this.room_size / 2).times(wall_transform),
+                    vec3(0, 0, 0), 0));
+            this.walls.push(new Body(this.shapes.square, this.materials.wall, vec3(1, 1 + Math.random(), 1))
+                .emplace(Mat4.translation(0, this.room_size / 2, -this.room_size / 2).times(wall_transform),
+                    vec3(0, 0, 0), 0));
+            wall_transform = Mat4.rotation(Math.PI / 2, 0, 1, 0).times(wall_transform);
+            this.walls.push(new Body(this.shapes.square, this.materials.wall, vec3(1, 1 + Math.random(), 1))
+                .emplace(Mat4.translation(this.room_size / 2, this.room_size / 2, 0).times(wall_transform),
+                    vec3(0, 0, 0), 0));
+            this.walls.push(new Body(this.shapes.square, this.materials.wall, vec3(1, 1 + Math.random(), 1))
+                .emplace(Mat4.translation(-this.room_size / 2, this.room_size / 2, 0).times(wall_transform),
+                    vec3(0, 0, 0), 0));
+
         }
         program_state.projection_transform = Mat4.perspective(
             Math.PI / 4, context.width / context.height, 1, 100);
@@ -277,69 +313,17 @@ export class Aurora_Test extends Scene {
         const {points, leeway} = this.colliders[this.collider_selection];
         const size = vec3(1 + leeway, 1 + leeway, 1 + leeway);
 
-        let test_transform = Mat4.identity();
-        test_transform = Mat4.rotation(Math.PI / 2, 1, 0, 0)
-            .times(Mat4.scale(50, 50, 1))
-            .times(Mat4.translation(0, 0, -1))
-            .times(test_transform);
-        let ground = new Body(this.shapes.square, this.materials.plastic, vec3(1, 1 + Math.random(), 1))
-            .emplace(test_transform, vec3(0, 0, 0), 0);
-        points.draw(context, program_state, ground.drawn_location, ground.material);
-
-        // this.shapes.square.draw(context, program_state, test_transform, this.materials.stars);
-
-
-        if (this.throw_queue.length > 0) {
-            for (let i = 0; i < this.throw_queue.length; i++) {
-                let obj = this.throw_queue[i];
-
-                let center = obj.center;
-                let start_time = obj.start_time;
-                let end_time = obj.end_time;
-                let direction = obj.direction;
-                if (t > end_time) {
-
-                }
-                if (t <= end_time && t >= start_time) {
-                    let P = program_state.projection_transform;
-                    let V = program_state.camera_inverse;
-                    let camera_pos = Mat4.inverse(P.times(V)).times(vec4(0.0, 0.0, 0.0, 1.0));
-                    camera_pos.scale_by(1 / camera_pos[3]);
-                    // console.log(camera_pos);
-
-                    let time_elapsed = t - start_time;
-                    // console.log(time_elapsed);
-                    let x_pos = center[0] + (direction[0] * time_elapsed / 1000);
-                    let y_pos = this.get_height_at_time(center[1],
-                        1,
-                        time_elapsed / 1000) + 2;
-                    let z_pos = center[2] + (direction[2] * time_elapsed / 1000);
-                    // insert collision detection here
-
-                    // console.log(x_pos);
-                    // console.log(y_pos);
-                    // console.log(z_pos);
-                    let model_trans = Mat4.translation(x_pos, y_pos, z_pos);
-
-
-                    // this.shapes.cube.draw(context,
-                    //     program_state,
-                    //     model_trans,
-                    //     this.materials.plastic);
-                }
-            }
+        for (let wall of this.walls) {
+            points.draw(context, program_state, wall.drawn_location, wall.material);
         }
 
+        this.bodies = this.bodies.filter(b => b.end_time > t);
         if (this.bodies.length > 0) {
             for (let i = 0; i < this.bodies.length; i++) {
                 let obj = this.bodies[i];
 
-                let end_time = obj.end_time;
-
-                if (t <= end_time) {
-                    // console.log("drew box")
-                    obj.body.shape.draw(context, program_state, obj.body.drawn_location, obj.body.material);
-                }
+                // console.log("drew box")
+                obj.body.shape.draw(context, program_state, obj.body.drawn_location, obj.body.material);
 
             }
 
