@@ -183,8 +183,10 @@ export class Pompiliu_Test extends Scene {
 
         // *** Materials
         this.materials = {
-            plastic: new Material(new defs.Phong_Shader(),
-                {ambient: .4, diffusivity: .6, color: hex_color("#ffffff")}),
+            plastic: new Material(new defs.Phong_Shader(), {ambient: .4, diffusivity: .6, color: hex_color("#ffffff")}),
+           // a: { shader, ambient: .5, texture: new Texture( "assets/rgb.jpg" ) },
+           // b: { shader, ambient: .5, texture:  new Texture( "assets/earth.gif" ) },
+           // c: { shader, ambient:  1, texture: this.texture }
         };
         // The white material and basic shader are used for drawing the outline.
         this.white = new Material(new defs.Basic_Shader());
@@ -279,7 +281,8 @@ export class Pompiliu_Test extends Scene {
         // base rests at 0
         model_transform = model_transform.times(Mat4.translation(0,height + 2,0))
             .times(Mat4.scale(2,2,2));
-        this.shapes.cube01.draw(context, program_state, model_transform, this.materials.plastic.override({color:blue}));
+        this.shapes.cube.draw(context, program_state, model_transform, this.materials.plastic);
+        //this.shapes.cube.draw(context, program_state, model_transform, this.materials.plastic.override({color:blue}));
         //this.shapes.amogus2.draw(context, program_state, model_transform, this.materials.plastic.override({color:blue}));
 
 
