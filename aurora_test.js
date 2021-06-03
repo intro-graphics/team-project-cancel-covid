@@ -22,7 +22,9 @@ export class Body {
     }
 
     emplace(location_matrix, linear_velocity, angular_velocity, spin_axis = vec3(0, 0, 0).randomized(1).normalized()) {                               // emplace(): assign the body's initial values, or overwrite them.
-        this.center = location_matrix.times(vec4(0, 0, 0, 1)).to3();
+        this.center = location_matrix.times(vec4(0.0, 0.0, 0.0, 1.0));
+        this.center = this.center.to3();
+        // console.log(this.center);
         this.rotation = Mat4.translation(...this.center.times(-1)).times(location_matrix);
         this.previous = {center: this.center.copy(), rotation: this.rotation.copy()};
         // drawn_location gets replaced with an interpolated quantity:
@@ -116,12 +118,24 @@ export class Aurora_Test extends Scene {
         // Materials
         this.materials = {
             plastic: new Material(new defs.Phong_Shader(),
-                {ambient: .4, diffusivity: .6, color: hex_color("#ffffff")}),
+                {ambient: .4, diffusivity: .6, color: hex_color("#1a9ffa")}),
             wallpaper: new Material(new defs.Phong_Shader(),
                 {ambient: 0.2, diffusivity: 1, color: hex_color("#c4aa7e")}),
             stars: new Material(new defs.Phong_Shader(), {
                 ambient: .4, color: color(.4, .8, .4, 1),
-                texture: this.textures.stars}),
+                texture: this.textures.stars
+            }),
+            inactive_color: new Material(new defs.Fake_Bump_Map(1), {
+                color: color(.5, .5, .5, 1), ambient: .2,
+                texture: this.textures.rgb
+            }),
+            active_color: new Material(new defs.Fake_Bump_Map(1), {
+                color: color(.5, 0, 0, 1), ambient: .5,
+                texture: this.textures.rgb
+            }),
+            bright: new Material(new defs.Phong_Shader(), {
+                color: color(0, 1, 0, .5), ambient: 1
+            }),
         };
 
         // Make simpler dummy shapes for representing all other shapes during collisions:
@@ -131,20 +145,14 @@ export class Aurora_Test extends Scene {
             {intersect_test: Body.intersect_cube, points: new defs.Cube(), leeway: .1}
         ];
 
+        this.collider_selection = 0;
+
         this.bodies = [];
         this.throw_queue = [];
         this.gravity = 20;
     }
 
-    set_colors() {
-        // TODO:  Create a class member variable to store your cube's colors.
-        // Hint:  You might need to create a member variable at somewhere to store the colors, using `this`.
-        // Hint2: You can consider add a constructor for class Assignment2, or add member variables in Base_Scene's constructor.
-    }
-
     make_control_panel() {
-        // Draw the scene's buttons, setup their actions and keyboard shortcuts, and monitor live measurements.
-        this.key_triggered_button("Reset", ["r"], this.set_colors);
     }
 
 
@@ -209,25 +217,34 @@ export class Aurora_Test extends Scene {
 
         let pos_world_far = Mat4.inverse(P.times(V)).times(pos_ndc_far);
         let center_world_near = Mat4.inverse(P.times(V)).times(center_ndc_near);
-        let camera_pos = Mat4.inverse(P.times(W)).times(vec4(0.0, 0.0, 0.0, 1.0));
+        let camera_pos = Mat4.inverse(P.times(W)).times(center_ndc_near);
+        let dir = W.times(pos_ndc_far).minus(W.times(center_ndc_near));
+        console.log(dir);
 
         pos_world_far.scale_by(1 / pos_world_far[3]);
         center_world_near.scale_by(1 / center_world_near[3]);
         camera_pos.scale_by(1 / camera_pos[3]);
         let direction_world = pos_world_far.minus(center_world_near);
+        direction_world.scale_by(1/2);
 
-        console.log(pos_world_far);
         console.log(center_world_near);
         console.log(direction_world);
 
-        let animation_object = {
-            center: camera_pos,
-            start_time: program_state.program_state.animation_time,
+        // convert to a translation matrix
+        let a = Mat4.inverse(P.times(W));
+        a[0] = vec4(1, 0, 0, a[0][3]);
+        a[1] = vec4(0, 1, 0, a[1][3]);
+        a[2] = vec4(0, 0, 1, a[2][3]);
+        a[3] = vec4(0, 0, 0, a[3][3]);
+        console.log(a);
+        let b = new Body(this.shapes.cube, this.materials.plastic, vec3(1, 1, 1))
+            .emplace(a, dir, 0);
+        let object = {
+            body: b,
             end_time: program_state.program_state.animation_time + 10000,
-            direction: direction_world,
         }
-
-        this.throw_queue.push(animation_object);
+        this.bodies.push(object);
+        console.log(object);
     }
 
 
@@ -244,14 +261,7 @@ export class Aurora_Test extends Scene {
                     (e.clientY - (rect.bottom + rect.top) / 2) / ((rect.bottom + rect.top) / 2));
             canvas.addEventListener("mousedown", e => {
                 e.preventDefault();
-                this.throw_object(e, mouse_position(e), program_state, context)
-                // console.log(mouse_position(e));
-                let P = program_state.projection_transform;
-                let V = program_state.camera_transform;
-                let camera_pos = Mat4.inverse(P.times(V)).times(vec4(0.0, 0.0, 0.0, 1.0));
-                camera_pos.scale_by(1 / camera_pos[3]);
-                console.log("camera position");
-                console.log(camera_pos);
+                this.throw_object(e, mouse_position(e), program_state, context);
             });
         }
         program_state.projection_transform = Mat4.perspective(
@@ -261,23 +271,22 @@ export class Aurora_Test extends Scene {
         const light_position = vec4(0, 20, 8, 1);
         program_state.lights = [new Light(light_position, color(1, 1, 1, 1), 100)];
 
+        const t = program_state.animation_time;
+        const dt = program_state.animation_delta_time;
 
+        const {points, leeway} = this.colliders[this.collider_selection];
+        const size = vec3(1 + leeway, 1 + leeway, 1 + leeway);
 
-        const blue = hex_color("#1a9ffa");
+        let test_transform = Mat4.identity();
+        test_transform = Mat4.rotation(Math.PI / 2, 1, 0, 0)
+            .times(Mat4.scale(50, 50, 1))
+            .times(Mat4.translation(0, 0, -1))
+            .times(test_transform);
+        let ground = new Body(this.shapes.square, this.materials.plastic, vec3(1, 1 + Math.random(), 1))
+            .emplace(test_transform, vec3(0, 0, 0), 0);
+        points.draw(context, program_state, ground.drawn_location, ground.material);
 
-        let model_transform = Mat4.identity();
-        let initial_height = 10;
-        const t = program_state.animation_time
-        let height = this.get_height_at_time(initial_height, t / 1000);
-
-        // base rests at 0
-        let cube_transform = Mat4.translation(0, 1, 0);
-        //        model_transform = model_transform.times(Mat4.translation(0,height + 2,0))
-        //  .times(Mat4.scale(2,2,2));
-        this.shapes.cube.draw(context, program_state, cube_transform, this.materials.plastic.override({color:blue}));
-
-        let c_transform = Mat4.translation(0, 20, 0).times(Mat4.scale(30, 20, 30));
-        // this.shapes.cube.draw(context, program_state, c_transform, this.materials.wallpaper);
+        // this.shapes.square.draw(context, program_state, test_transform, this.materials.stars);
 
 
         if (this.throw_queue.length > 0) {
@@ -313,12 +322,27 @@ export class Aurora_Test extends Scene {
                     let model_trans = Mat4.translation(x_pos, y_pos, z_pos);
 
 
-                    this.shapes.cube.draw(context,
-                        program_state,
-                        model_trans,
-                        this.materials.plastic.override({color:blue}));
+                    // this.shapes.cube.draw(context,
+                    //     program_state,
+                    //     model_trans,
+                    //     this.materials.plastic);
                 }
             }
+        }
+
+        if (this.bodies.length > 0) {
+            for (let i = 0; i < this.bodies.length; i++) {
+                let obj = this.bodies[i];
+
+                let end_time = obj.end_time;
+
+                if (t <= end_time) {
+                    // console.log("drew box")
+                    obj.body.shape.draw(context, program_state, obj.body.drawn_location, obj.body.material);
+                }
+
+            }
+
         }
 
         // TODO:  Draw your entire scene here.  Use this.draw_box( graphics_state, model_transform ) to call your helper.
