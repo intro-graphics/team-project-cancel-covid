@@ -4,6 +4,15 @@ import {defs, tiny} from './examples/common.js';
 const {Vector, Vector3, vec, vec3, vec4, color, hex_color, Matrix, Mat4,
     Light, Shape, Material, Shader, Texture, Scene} = tiny;
 
+// Types of walls
+const R = 0;
+const F = 1;
+const N = 2;
+const S = 3;
+const W = 4;
+const E = 5;
+const U = -1;
+
 class ReversedCube extends Shape {
     constructor() {
         super("position", "normal",);
@@ -281,37 +290,41 @@ export class Test extends Simulation {
             let floor_transform = Mat4.rotation(Math.PI / 2, 1, 0, 0)
                 .times(Mat4.scale(this.room_size, this.room_size, 1))
                 .times(Mat4.translation(0, 0, -1));
-            this.bodies.push(new Body(this.shapes.square, this.materials.floor, vec3(1, 1 + Math.random(), 1), false, false)
+            this.bodies.push(new Body(this.shapes.square, this.materials.floor, vec3(1, 1 + Math.random(), 1), F, false)
                 .emplace(floor_transform, vec3(0, 0, 0), 0));
 
             // walls
             let wall_transform = Mat4.scale(this.room_size, this.room_size, 1)
                 .times(Mat4.translation(0, 0, -1));
-            this.bodies.push(new Body(this.shapes.square, this.materials.wall, vec3(1, 1 + Math.random(), 1), false, false)
+
+            // walls along the z-axis
+            this.bodies.push(new Body(this.shapes.square, this.materials.wall, vec3(1, 1 + Math.random(), 1), S, false)
                 .emplace(Mat4.translation(0, this.room_size / 2, this.room_size / 2).times(wall_transform),
                     vec3(0, 0, 0), 0));
-            this.bodies.push(new Body(this.shapes.square, this.materials.wall, vec3(1, 1 + Math.random(), 1), false, false)
+            this.bodies.push(new Body(this.shapes.square, this.materials.wall, vec3(1, 1 + Math.random(), 1), N, false)
                 .emplace(Mat4.translation(0, this.room_size / 2, -this.room_size / 2).times(wall_transform),
                     vec3(0, 0, 0), 0));
             wall_transform = Mat4.rotation(Math.PI / 2, 0, 1, 0).times(wall_transform);
-            this.bodies.push(new Body(this.shapes.square, this.materials.wall, vec3(1, 1 + Math.random(), 1), false, false)
+
+            // walls along the x-axis
+            this.bodies.push(new Body(this.shapes.square, this.materials.wall, vec3(1, 1 + Math.random(), 1), E, false)
                 .emplace(Mat4.translation(this.room_size / 2, this.room_size / 2, 0).times(wall_transform),
                     vec3(0, 0, 0), 0));
-            this.bodies.push(new Body(this.shapes.square, this.materials.wall, vec3(1, 1 + Math.random(), 1), false, false)
+            this.bodies.push(new Body(this.shapes.square, this.materials.wall, vec3(1, 1 + Math.random(), 1), W, false)
                 .emplace(Mat4.translation(-this.room_size / 2, this.room_size / 2, 0).times(wall_transform),
                     vec3(0, 0, 0), 0));
         }
 
         while (this.bodies.length < 6)
-            this.bodies.push(new Body(this.shapes.cube, this.materials.plastic, vec3(1, 1 + Math.random(), 1), true, false)
+            this.bodies.push(new Body(this.shapes.cube, this.materials.plastic, vec3(1, 1, 1), U, false)
                 .emplace(Mat4.translation(...vec3(0, 15, 0).randomized(10)),
                     vec3(0, -1, 0).randomized(2).normalized().times(3), Math.random()));
 
         // Delete bodies that stop or stray too far away:
-        this.bodies = this.bodies.filter(b => b.center.norm() < 50 && b.linear_velocity.norm() > 2 || !b.temporary);
+        this.bodies = this.bodies.filter(b => b.center.norm() < 50 && b.linear_velocity.norm() > 2 || b.temporary !== U);
 
         for (let a of this.bodies) {
-            if (!a.temporary) {
+            if (a.temporary !== U) {
                 continue;
             }
             // Gravity on Earth, where 1 unit in world space = 1 meter:
@@ -320,32 +333,130 @@ export class Test extends Simulation {
 
                     
         const collider = this.colliders[this.collider_selection];
-        let walls = this.bodies.filter(b => !b.temporary);
+        let walls = this.bodies.filter(b => b.temporary !== U);
         // Collider process
-        for (let b of this.bodies) {
-            // Cache the inverse of matrix of body "b" to save time.
-            // b.inverse = Mat4.inverse(b.drawn_location);
-            let a = this.bodies[0];
-            a.inverse = Mat4.inverse(a.drawn_location);
-            let r = a.check_if_colliding(b, collider);
-            if (r) {
-                // If about to fall through floor, reverse y velocity:
-                if (b.linear_velocity[1] < 0) {
-                    b.linear_velocity[1] *= -.8;
-                }
-                if (b.debris) {
+        for (let w of walls) {
+            w.inverse = Mat4.inverse(w.drawn_location);
+            for (let b of this.bodies) {
+
+                // If this is a wall
+                if (b.temporary !== U) {
                     continue;
                 }
-                // Shattering process
-                let i = 0;
-                for (i = 0; i < 4; i++) {
-                    this.bodies.push(new Body(this.shapes.cube, this.materials.plastic, vec3(0.25, 0.25, 0.25), true, true)
-                        .emplace(b.drawn_location,
-                            vec3(0, 1, 0).randomized(2).normalized().times(3), Math.random()));
+
+                let r = w.check_if_colliding(b, collider);
+                if (r) {
+
+                    // Collided with the wall (what kind of wall)
+                    switch(w.temporary) {
+                        // F for floor
+                        case F: {
+                            if (b.linear_velocity[1] < 0)
+                                b.linear_velocity[1] *= -.8;
+                            break;
+                        }
+                        // N for north
+                        case N: {
+                            if (b.linear_velocity[2] < 0)
+                                b.linear_velocity[2] *= -.8;
+                            break;
+                        }
+                        // S for south
+                        case S: {
+                            if (b.linear_velocity[2] > 0)
+                                b.linear_velocity[2] *= -.8;
+                            break;
+                        }
+                        // W for west
+                        case W: {
+                            if (b.linear_velocity[0] < 0)
+                                b.linear_velocity[0] *= -.8;
+                            break;
+                        }
+                        // E for east
+                        case E: {
+                            if (b.linear_velocity[0] > 0)
+                                b.linear_velocity[0] *= -.8;
+                            break;
+                        }
+                        default: {
+                            if (b.linear_velocity[1] < 0)
+                                b.linear_velocity[1] *= -.8;
+                            break;
+                        }
+                    }
+
+                    if (b.debris) {
+                        continue;
+                    }
+
+                    let s = b.size;
+                    b.size = s.times(1/1.05);
+
+                    // Shattering process
+                    let i = 0;
+                    for (i = 0; i < 4; i++) {
+                        this.bodies.push(new Body(this.shapes.cube, this.materials.plastic, s.times(1/4), U, true)
+                            .emplace(b.drawn_location,
+                                vec3(0, 1, 0).randomized(2).normalized().times(3), Math.random()));
+                    }
                 }
-                b.material = this.materials.plastic.override({color: color(0.5, 0, 0, 1)});
             }
         }
+
+//         // for (let w of walls) {
+//         for (let b of this.bodies) {
+//             // Cache the inverse of matrix of body "b" to save time.
+//             b.inverse = Mat4.inverse(b.drawn_location);
+//             let a = this.bodies[0];
+// //             w.inverse = Mat4.inverse(w.drawn_location);
+
+// //             for (let b of bodies) {
+
+// //                 // If this is a wall
+// //                 if (!b.temporary) {
+// //                     continue;
+// //                 }
+
+// //                 let r = w.check_if_colliding(b, collider);
+// //                 if (r) {
+// //                     // Collided with the wall (what kind of wall)
+// //                     // If about to fall through floor, reverse y velocity:
+// //                     if (b.linear_velocity[1] < 0) {
+// //                         b.linear_velocity[1] *= -.8;
+// //                     }
+// //                     if (b.debris) {
+// //                         continue;
+// //                     }
+// //                     // Shattering process
+// //                     let i = 0;
+// //                     for (i = 0; i < 4; i++) {
+// //                         this.bodies.push(new Body(this.shapes.cube, this.materials.plastic, vec3(0.25, 0.25, 0.25), true, true)
+// //                             .emplace(b.drawn_location,
+// //                                 vec3(0, 1, 0).randomized(2).normalized().times(3), Math.random()));
+// //                     }
+// //                 }
+// //             }
+
+//             let r = a.check_if_colliding(b, collider);
+//             if (r) {
+//                 // If about to fall through floor, reverse y velocity:
+//                 if (b.linear_velocity[1] < 0) {
+//                     b.linear_velocity[1] *= -.8;
+//                 }
+//                 if (b.debris) {
+//                     continue;
+//                 }
+//                 // Shattering process
+//                 let i = 0;
+//                 for (i = 0; i < 4; i++) {
+//                     this.bodies.push(new Body(this.shapes.cube, this.materials.plastic, vec3(0.25, 0.25, 0.25), N, true)
+//                         .emplace(b.drawn_location,
+//                             vec3(0, 1, 0).randomized(2).normalized().times(3), Math.random()));
+//                 }
+//                 b.material = this.materials.plastic.override({color: color(0.5, 0, 0, 1)});
+//             }
+//         }
     }
 
     display(context, program_state) {
@@ -372,8 +483,8 @@ export class Test extends Simulation {
         // this.ground.shape.draw(context, program_state, Mat4.translation(0, -10, 0), this.ground.material);
         const {points, leeway} = this.colliders[this.collider_selection];
         const size = vec3(1 + leeway, 1 + leeway, 1 + leeway);
-        // for (let b of this.bodies)
-            // points.draw(context, program_state, b.drawn_location.times(Mat4.scale(...size)), this.materials.bright, "LINE_STRIP");
+        for (let b of this.bodies)
+            points.draw(context, program_state, b.drawn_location.times(Mat4.scale(...size)), this.materials.bright, "LINE_STRIP");
     }
 
 }
