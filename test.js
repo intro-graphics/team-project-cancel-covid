@@ -1,15 +1,34 @@
 import {defs, tiny} from './examples/common.js';
 
 // Pull these names into this module's scope for convenience:
-const {vec3, unsafe3, vec4, color, Mat4, Light, Shape, Material, Shader, Texture, Scene} = tiny;
+const {Vector, Vector3, vec, vec3, vec4, color, hex_color, Matrix, Mat4,
+    Light, Shape, Material, Shader, Texture, Scene} = tiny;
+
+class ReversedCube extends Shape {
+    constructor() {
+        super("position", "normal",);
+        // Loop 3 times (for each axis), and inside loop twice (for opposing cube sides):
+        this.arrays.position = Vector3.cast(
+            [-1, -1, -1], [1, -1, -1], [-1, -1, 1], [1, -1, 1], [1, 1, -1], [-1, 1, -1], [1, 1, 1], [-1, 1, 1],
+            [-1, -1, -1], [-1, -1, 1], [-1, 1, -1], [-1, 1, 1], [1, -1, 1], [1, -1, -1], [1, 1, 1], [1, 1, -1],
+            [-1, -1, 1], [1, -1, 1], [-1, 1, 1], [1, 1, 1], [1, -1, -1], [-1, -1, -1], [1, 1, -1], [-1, 1, -1]);
+        this.arrays.normal = Vector3.cast(
+            [0, 1, 0], [0, 1, 0], [0, 1, 0], [0, 1, 0], [0, -1, 0], [0, -1, 0], [0, -1, 0], [0, -1, 0],
+            [1, 0, 0], [1, 0, 0], [1, 0, 0], [1, 0, 0], [-1, 0, 0], [-1, 0, 0], [-1, 0, 0], [-1, 0, 0],
+            [0, 0, -1], [0, 0, -1], [0, 0, -1], [0, 0, -1], [0, 0, 1], [0, 0, 1], [0, 0, 1], [0, 0, 1]);
+        // Arrange the vertices into a square shape in texture space too:
+        this.indices.push(0, 1, 2, 1, 3, 2, 4, 5, 6, 5, 7, 6, 8, 9, 10, 9, 11, 10, 12, 13,
+            14, 13, 15, 14, 16, 17, 18, 17, 19, 18, 20, 21, 22, 21, 23, 22);
+    }
+}
 
 export class Body {
     // **Body** can store and update the properties of a 3D body that incrementally
     // moves from its previous place due to velocities.  It conforms to the
     // approach outlined in the "Fix Your Timestep!" blog post by Glenn Fiedler.
-    constructor(shape, material, size) {
+    constructor(shape, material, size, temporary, debris) {
         Object.assign(this,
-            {shape, material, size})
+            {shape, material, size, temporary, debris})
     }
 
     // (within some margin of distance).
@@ -176,6 +195,8 @@ export class Test_Data {
             prism: new (defs.Capped_Cylinder.prototype.make_flat_shaded_version())(10, 10, [[0, 2], [0, 1]]),
             gem: new (defs.Subdivision_Sphere.prototype.make_flat_shaded_version())(2),
             donut2: new (defs.Torus.prototype.make_flat_shaded_version())(20, 20, [[0, 2], [0, 1]]),
+            rcube: new ReversedCube(),
+            square: new defs.Square(),
         };
     }
 
@@ -200,12 +221,46 @@ export class Test extends Simulation {
             {intersect_test: Body.intersect_cube, points: new defs.Cube(), leeway: .1}
         ];
         this.collider_selection = 0;
-        this.shapes.square = new defs.Square();
-        const shader = new defs.Fake_Bump_Map(1);
-        this.material = new Material(shader, {
-            color: color(.4, .8, .4, 1),
-            ambient: .4, texture: this.data.textures.stars
-        })
+        this.room_size = 75;
+
+        // Textures
+        this.textures = {
+            rgb: new Texture("assets/rgb.jpg"),
+            earth: new Texture("assets/earth.gif"),
+            stars: new Texture("assets/stars.png"),
+            text: new Texture("assets/text.png"),
+        }
+
+        // Materials
+        this.materials = {
+            plastic: new Material(new defs.Phong_Shader(),
+                {ambient: .4, diffusivity: .6, color: hex_color("#ffffff")}),
+            wallpaper: new Material(new defs.Phong_Shader(),
+                {ambient: 0.2, diffusivity: 1, color: hex_color("#c4aa7e")}),
+            stars: new Material(new defs.Phong_Shader(), {
+                ambient: .4, color: color(.4, .8, .4, 1),
+                texture: this.textures.stars
+            }),
+            inactive_color: new Material(new defs.Fake_Bump_Map(1), {
+                color: color(.5, .5, .5, 1), ambient: .2,
+                texture: this.textures.rgb
+            }),
+            active_color: new Material(new defs.Fake_Bump_Map(1), {
+                color: color(.5, 0, 0, 1), ambient: .5,
+                texture: this.textures.rgb
+            }),
+            bright: new Material(new defs.Phong_Shader(), {
+                color: color(0, 1, 0, .5), ambient: 1
+            }),
+            floor: new Material(new defs.Phong_Shader(1), {
+                ambient: .4, color: color(.4, .8, .4, 1),
+                texture: this.textures.stars
+            }),
+            wall: new Material(new defs.Phong_Shader(1), {
+                ambient: .4, color: color(.4, .8, .4, 1),
+                texture: this.textures.stars
+            }),
+        };
     }
 
     random_color() {
@@ -218,42 +273,77 @@ export class Test extends Simulation {
         // Generate additional moving bodies if there ever aren't enough:
 
         if (this.bodies.length === 0) {
-            this.bodies.push(new Body(this.shapes.square, this.material.override(color(.5, .5, .5, 1)), vec3(1, 1 + Math.random(), 1))
-                .emplace(Mat4.translation(0, -10, 0)
-                        .times(Mat4.rotation(Math.PI / 2, 1, 0, 0))
-                        .times(Mat4.scale(50, 50, 1)),
+            //this.bodies.push(new Body(this.shapes.square, this.materials.plastic, vec3(1, 1 + Math.random(), 1), false, false)
+            //    .emplace(Mat4.translation(0, -10, 0)
+            //            .times(Mat4.rotation(Math.PI / 2, 1, 0, 0))
+            //            .times(Mat4.scale(50, 50, 1)),
+            //        vec3(0, 0, 0), 0));
+            let floor_transform = Mat4.rotation(Math.PI / 2, 1, 0, 0)
+                .times(Mat4.scale(this.room_size, this.room_size, 1))
+                .times(Mat4.translation(0, 0, -1));
+            this.bodies.push(new Body(this.shapes.square, this.materials.floor, vec3(1, 1 + Math.random(), 1), false, false)
+                .emplace(floor_transform, vec3(0, 0, 0), 0));
+
+            // walls
+            let wall_transform = Mat4.scale(this.room_size, this.room_size, 1)
+                .times(Mat4.translation(0, 0, -1));
+            this.bodies.push(new Body(this.shapes.square, this.materials.wall, vec3(1, 1 + Math.random(), 1), false, false)
+                .emplace(Mat4.translation(0, this.room_size / 2, this.room_size / 2).times(wall_transform),
+                    vec3(0, 0, 0), 0));
+            this.bodies.push(new Body(this.shapes.square, this.materials.wall, vec3(1, 1 + Math.random(), 1), false, false)
+                .emplace(Mat4.translation(0, this.room_size / 2, -this.room_size / 2).times(wall_transform),
+                    vec3(0, 0, 0), 0));
+            wall_transform = Mat4.rotation(Math.PI / 2, 0, 1, 0).times(wall_transform);
+            this.bodies.push(new Body(this.shapes.square, this.materials.wall, vec3(1, 1 + Math.random(), 1), false, false)
+                .emplace(Mat4.translation(this.room_size / 2, this.room_size / 2, 0).times(wall_transform),
+                    vec3(0, 0, 0), 0));
+            this.bodies.push(new Body(this.shapes.square, this.materials.wall, vec3(1, 1 + Math.random(), 1), false, false)
+                .emplace(Mat4.translation(-this.room_size / 2, this.room_size / 2, 0).times(wall_transform),
                     vec3(0, 0, 0), 0));
         }
 
-        while (this.bodies.length < 2)
-            this.bodies.push(new Body(this.shapes.cube, this.material.override(color(.5, .5, .5, 1)), vec3(1, 1 + Math.random(), 1))
+        while (this.bodies.length < 6)
+            this.bodies.push(new Body(this.shapes.cube, this.materials.plastic, vec3(1, 1 + Math.random(), 1), true, false)
                 .emplace(Mat4.translation(...vec3(0, 15, 0).randomized(10)),
                     vec3(0, -1, 0).randomized(2).normalized().times(3), Math.random()));
 
         // Delete bodies that stop or stray too far away:
-        this.bodies = this.bodies.filter(b => b.center.norm() < 50 && b.linear_velocity.norm() > 2 || b.shape === this.shapes.square);
+        this.bodies = this.bodies.filter(b => b.center.norm() < 50 && b.linear_velocity.norm() > 2 || !b.temporary);
 
         for (let a of this.bodies) {
-            if (a.shape === this.shapes.square) {
+            if (!a.temporary) {
                 continue;
             }
             // Gravity on Earth, where 1 unit in world space = 1 meter:
             a.linear_velocity[1] += dt * -9.8;
-            // If about to fall through floor, reverse y velocity:
-            if (a.center[1] < -8 && a.linear_velocity[1] < 0)
-                a.linear_velocity[1] *= -.8;
         }
 
                     
         const collider = this.colliders[this.collider_selection];
+        let walls = this.bodies.filter(b => !b.temporary);
         // Collider process
-        for (let a of this.bodies) {
-             // Cache the inverse of matrix of body "a" to save time.
-             a.inverse = Mat4.inverse(a.drawn_location);
-             for (let b of this.bodies) {
-                if (!a.check_if_colliding(b, collider))
+        for (let b of this.bodies) {
+            // Cache the inverse of matrix of body "b" to save time.
+            // b.inverse = Mat4.inverse(b.drawn_location);
+            let a = this.bodies[0];
+            a.inverse = Mat4.inverse(a.drawn_location);
+            let r = a.check_if_colliding(b, collider);
+            if (r) {
+                // If about to fall through floor, reverse y velocity:
+                if (b.linear_velocity[1] < 0) {
+                    b.linear_velocity[1] *= -.8;
+                }
+                if (b.debris) {
                     continue;
-                b.material = this.material.override({color: color(0.5, 0, 0, 1)});
+                }
+                // Shattering process
+                let i = 0;
+                for (i = 0; i < 4; i++) {
+                    this.bodies.push(new Body(this.shapes.cube, this.materials.plastic, vec3(0.25, 0.25, 0.25), true, true)
+                        .emplace(b.drawn_location,
+                            vec3(0, 1, 0).randomized(2).normalized().times(3), Math.random()));
+                }
+                b.material = this.materials.plastic.override({color: color(0.5, 0, 0, 1)});
             }
         }
     }
@@ -265,130 +355,303 @@ export class Test extends Simulation {
         if (!context.scratchpad.controls) {
             this.children.push(context.scratchpad.controls = new defs.Movement_Controls());
             this.children.push(new defs.Program_State_Viewer());
-            program_state.set_camera(Mat4.translation(0, 0, -50));    // Locate the camera here (inverted matrix).
+            // Define the global camera and projection matrices, which are stored in program_state.
+            program_state.set_camera(Mat4.translation(0, -5, -20));
         }
-        program_state.projection_transform = Mat4.perspective(Math.PI / 4, context.width / context.height, 1, 500);
-        program_state.lights = [new Light(vec4(0, -5, -10, 1), color(1, 1, 1, 1), 100000)];
+        program_state.projection_transform = Mat4.perspective(
+            Math.PI / 4, context.width / context.height, 1, 100);
+
+        // *** Lights: *** Values of vector or point lights.
+        const light_position = vec4(0, 20, 8, 1);
+        program_state.lights = [new Light(light_position, color(1, 1, 1, 1), 100)];
 
         // Draw the ground:
         // this.ground.shape.draw(context, program_state, Mat4.translation(0, -10, 0)
         //         .times(Mat4.rotation(Math.PI / 2, 1, 0, 0)).times(Mat4.scale(50, 50, 1)),
         //    this.material.override(this.data.textures.earth));
         // this.ground.shape.draw(context, program_state, Mat4.translation(0, -10, 0), this.ground.material);
+        const {points, leeway} = this.colliders[this.collider_selection];
+        const size = vec3(1 + leeway, 1 + leeway, 1 + leeway);
+        // for (let b of this.bodies)
+            // points.draw(context, program_state, b.drawn_location.times(Mat4.scale(...size)), this.materials.bright, "LINE_STRIP");
     }
 
-    show_explanation(document_element) {
-        document_element.innerHTML += `<p>This demo lets random initial momentums carry bodies until they fall and bounce.  It shows a good way to do incremental movements, which are crucial for making objects look like they're moving on their own instead of following a pre-determined path.  Animated objects look more real when they have inertia and obey physical laws, instead of being driven by simple sinusoids or periodic functions.
-                                     </p><p>For each moving object, we need to store a model matrix somewhere that is permanent (such as inside of our class) so we can keep consulting it every frame.  As an example, for a bowling simulation, the ball and each pin would go into an array (including 11 total matrices).  We give the model transform matrix a \"velocity\" and track it over time, which is split up into linear and angular components.  Here the angular velocity is expressed as an Euler angle-axis pair so that we can scale the angular speed how we want it.
-                                     </p><p>The forward Euler method is used to advance the linear and angular velocities of each shape one time-step.  The velocities are not subject to any forces here, but just a downward acceleration.  Velocities are also constrained to not take any objects under the ground plane.
-                                     </p><p>This scene extends class Simulation, which carefully manages stepping simulation time for any scenes that subclass it.  It totally decouples the whole simulation from the frame rate, following the suggestions in the blog post <a href=\"https://gafferongames.com/post/fix_your_timestep/\" target=\"blank\">\"Fix Your Timestep\"</a> by Glenn Fielder.  Buttons allow you to speed up and slow down time to show that the simulation's answers do not change.</p>`;
-    }
 }
 
-export class Collision_Demo extends Simulation {
-    // **Collision_Demo** demonstration: Detect when some flying objects
-    // collide with one another, coloring them red.
+
+class Aurora_Test extends Simulation {
     constructor() {
+        // constructor(): Scenes begin by populating initial values like the Shapes and Materials they'll need.
         super();
-        this.data = new Test_Data();
-        this.shapes = Object.assign({}, this.data.shapes);
+
+        // Shapes
+        this.shapes = {
+            donut: new defs.Torus(15, 15, [[0, 2], [0, 1]]),
+            cone: new defs.Closed_Cone(4, 10, [[0, 2], [0, 1]]),
+            capped: new defs.Capped_Cylinder(4, 12, [[0, 2], [0, 1]]),
+            ball: new defs.Subdivision_Sphere(3, [[0, 1], [0, 1]]),
+            cube: new defs.Cube(),
+            prism: new (defs.Capped_Cylinder.prototype.make_flat_shaded_version())(10, 10, [[0, 2], [0, 1]]),
+            gem: new (defs.Subdivision_Sphere.prototype.make_flat_shaded_version())(2),
+            donut2: new (defs.Torus.prototype.make_flat_shaded_version())(20, 20, [[0, 2], [0, 1]]),
+            room: new (defs.Cube.prototype.make_flat_shaded_version()),
+            wall: new (defs.Square.prototype.make_flat_shaded_version()),
+            square: new defs.Square(),
+        };
+
+        // Textures
+        this.textures = {
+            rgb: new Texture("assets/rgb.jpg"),
+            earth: new Texture("assets/earth.gif"),
+            stars: new Texture("assets/stars.png"),
+            text: new Texture("assets/text.png"),
+        }
+
+        // Materials
+        this.materials = {
+            plastic: new Material(new defs.Phong_Shader(),
+                {ambient: .4, diffusivity: .6, color: hex_color("#1a9ffa")}),
+            wallpaper: new Material(new defs.Phong_Shader(),
+                {ambient: 0.2, diffusivity: 1, color: hex_color("#c4aa7e")}),
+            stars: new Material(new defs.Phong_Shader(), {
+                ambient: .4, color: color(.4, .8, .4, 1),
+                texture: this.textures.stars
+            }),
+            inactive_color: new Material(new defs.Fake_Bump_Map(1), {
+                color: color(.5, .5, .5, 1), ambient: .2,
+                texture: this.textures.rgb
+            }),
+            active_color: new Material(new defs.Fake_Bump_Map(1), {
+                color: color(.5, 0, 0, 1), ambient: .5,
+                texture: this.textures.rgb
+            }),
+            bright: new Material(new defs.Phong_Shader(), {
+                color: color(0, 1, 0, .5), ambient: 1
+            }),
+            floor: new Material(new defs.Phong_Shader(1), {
+                ambient: .4, color: color(.4, .8, .4, 1),
+                texture: this.textures.stars
+            }),
+            wall: new Material(new defs.Phong_Shader(1), {
+                ambient: .4, color: color(.4, .8, .4, 1),
+                texture: this.textures.stars
+            }),
+        };
+
         // Make simpler dummy shapes for representing all other shapes during collisions:
         this.colliders = [
             {intersect_test: Body.intersect_sphere, points: new defs.Subdivision_Sphere(1), leeway: .5},
             {intersect_test: Body.intersect_sphere, points: new defs.Subdivision_Sphere(2), leeway: .3},
             {intersect_test: Body.intersect_cube, points: new defs.Cube(), leeway: .1}
         ];
+
         this.collider_selection = 0;
-        // Materials:
-        const phong = new defs.Phong_Shader(1);
-        const bump = new defs.Fake_Bump_Map(1)
-        this.inactive_color = new Material(bump, {
-            color: color(.5, .5, .5, 1), ambient: .2,
-            texture: this.data.textures.rgb
-        });
-        this.active_color = this.inactive_color.override({color: color(.5, 0, 0, 1), ambient: .5});
-        this.bright = new Material(phong, {color: color(0, 1, 0, .5), ambient: 1});
+        this.gravity = 20;
+        this.room_size = 75;
+
+        this.walls = [];
     }
 
     make_control_panel() {
-        this.key_triggered_button("Previous collider", ["b"], this.decrease);
-        this.key_triggered_button("Next", ["n"], this.increase);
-        this.new_line();
-        super.make_control_panel();
     }
 
-    increase() {
-        this.collider_selection = Math.min(this.collider_selection + 1, this.colliders.length - 1);
+
+    // from discussion 1b slides
+    // adds event listeners for mouse
+    add_mouse_controls(canvas, program_state, context) {
+        this.mouse = {"from_center" : vec(0, 0)};
+        const mouse_position = (e, rect = canvas.getBoundingClientRect()) =>
+            vec((e.clientX - (rect.left + rect.right) / 2) / ((rect.left + rect.right) / 2),
+                (e.clientY - (rect.bottom + rect.top) / 2) / ((rect.bottom + rect.top) / 2));
+
+        document.addEventListener("mouseup", e => {
+            this.mouse.anchor = undefined;
+        });
+        canvas.addEventListener("mousedown", e => {
+            e.preventDefault();
+            this.mouse.anchor = mouse_position(e);
+
+            this.throw_object(e, mouse_position(e), program_state, context)
+            console.log(mouse_position(e));
+        });
+        canvas.addEventListener("mousemove", e => {
+            e.preventDefault();
+            this.mouse.anchor = mouse_position(e);
+        });
+        canvas.addEventListener("mouseup", e => {
+            if (!this.mouse.anchor)
+                this.mouse.from_center.scale_by(0);
+        });
     }
 
-    decrease() {
-        this.collider_selection = Math.max(this.collider_selection - 1, 0)
-    }
+    // returns a height given the initial height and the time elapsed (in seconds) from the initial
+    // drop that simulates a bouncing motion
+    get_height_at_time(init_height, init_velocity, time_elapsed) {
+        // can adjust this
+        let max_bounces = init_height;
 
-    update_state(dt, num_bodies = 40) {
-        // update_state():  Override the base time-stepping code to say what this particular
-        // scene should do to its bodies every frame -- including applying forces.
-        // Generate moving bodies:
-        while (this.bodies.length < num_bodies)
-            this.bodies.push(new Body(this.data.random_shape(), undefined, vec3(1, 5, 1))
-                .emplace(Mat4.translation(...unsafe3(0, 0, 0).randomized(30))
-                        .times(Mat4.rotation(Math.PI, ...unsafe3(0, 0, 0).randomized(1).normalized())),
-                    unsafe3(0, 0, 0).randomized(20), Math.random()));
-        // Sometimes we delete some so they can re-generate as new ones:
-        this.bodies = this.bodies.filter(b => (Math.random() > .01) || b.linear_velocity.norm() > 1);
+        // decrease max height over time
+        let max_height = Math.max(init_height - time_elapsed, 0);
+        let max_velocity = Math.sqrt(2 * this.gravity * max_height);
+        let period = 2 / this.gravity * max_velocity;
 
-        const collider = this.colliders[this.collider_selection];
-        // Loop through all bodies (call each "a"):
-        for (let a of this.bodies) {
-            // Cache the inverse of matrix of body "a" to save time.
-            a.inverse = Mat4.inverse(a.drawn_location);
-
-            a.linear_velocity = a.linear_velocity.minus(a.center.times(dt));
-            // Apply a small centripetal force to everything.
-            a.material = this.inactive_color;
-            // Default color: white
-
-            if (a.linear_velocity.norm() == 0)
-                continue;
-            // *** Collision process is here ***
-            // Loop through all bodies again (call each "b"):
-            for (let b of this.bodies) {
-                // Pass the two bodies and the collision shape to check_if_colliding():
-                if (!a.check_if_colliding(b, collider))
-                    continue;
-                // If we get here, we collided, so turn red and zero out the
-                // velocity so they don't inter-penetrate any further.
-                a.material = this.active_color;
-                a.linear_velocity = vec3(0, 0, 0);
-                a.angular_velocity = 0;
-            }
+        // stop bouncing after max_bounces
+        if ((time_elapsed + (1 / 2 * period)) / (period) > max_bounces) {
+            return 0;
         }
+
+        // otherwise, calculate the height at time t
+        let t = (time_elapsed + (1 / 2 * period)) % (period);
+        let h = Math.max(- 1 / 2 * this.gravity * t ** 2 + max_velocity * t, 0);
+        return h;
     }
+
+    // when mouse is clicked, throw an object
+    throw_object(e, pos, context, program_state) {
+        let pos_ndc_far = vec4(pos[0], pos[1], 1.0, 1.0);
+        let center_ndc_near = vec4(0.0, 0.0, 0.0, 1.0);
+
+        let P = program_state.program_state.projection_transform;
+        let V = program_state.program_state.camera_transform;
+        let W = program_state.program_state.camera_inverse;
+
+        let pos_world_far = Mat4.inverse(P.times(V)).times(pos_ndc_far);
+        let center_world_near = Mat4.inverse(P.times(V)).times(center_ndc_near);
+        let camera_pos = Mat4.inverse(P.times(W)).times(center_ndc_near);
+        let dir = W.times(pos_ndc_far).minus(W.times(center_ndc_near));
+        console.log(dir);
+
+        pos_world_far.scale_by(1 / pos_world_far[3]);
+        center_world_near.scale_by(1 / center_world_near[3]);
+        camera_pos.scale_by(1 / camera_pos[3]);
+        let direction_world = pos_world_far.minus(center_world_near);
+        direction_world.scale_by(1/2);
+        direction_world[1] = -direction_world[1];
+
+        console.log(center_world_near);
+        console.log(direction_world);
+
+        // convert to a translation matrix
+        let a = Mat4.inverse(P.times(W));
+        a[0] = vec4(1, 0, 0, a[0][3]);
+        a[1] = vec4(0, 1, 0, a[1][3]);
+        a[2] = vec4(0, 0, 1, a[2][3]);
+        a[3] = vec4(0, 0, 0, a[3][3]);
+        console.log(a);
+        let b = new Body(this.shapes.cube, this.materials.plastic, vec3(1, 1, 1))
+            .emplace(a, direction_world, 0);
+        let object = {
+            body: b,
+            start_time: program_state.program_state.animation_time,
+            end_time: program_state.program_state.animation_time + 10000,
+        }
+        this.bodies.push(object);
+        console.log(object);
+    }
+
 
     display(context, program_state) {
         // display(): Draw everything else in the scene besides the moving bodies.
         super.display(context, program_state);
+
+        // Setup -- This part sets up the scene's overall camera matrix, projection matrix, and lights:
         if (!context.scratchpad.controls) {
             this.children.push(context.scratchpad.controls = new defs.Movement_Controls());
-            this.children.push(new defs.Program_State_Viewer());
-            program_state.set_camera(Mat4.translation(0, 0, -50));
-            // Locate the camera here (inverted matrix).
-        }
-        program_state.projection_transform = Mat4.perspective(Math.PI / 4, context.width / context.height, 1, 500);
-        program_state.lights = [new Light(vec4(.7, 1.5, 2, 0), color(1, 1, 1, 1), 100000)];
+            // Define the global camera and projection matrices, which are stored in program_state.
+            program_state.set_camera(Mat4.translation(0, -5, 0));
 
-        // Draw an extra bounding sphere around each drawn shape to show
-        // the physical shape that is really being collided with:
+            // add event listeners
+            let canvas = context.canvas;
+            const mouse_position = (e, rect = canvas.getBoundingClientRect()) =>
+                vec((e.clientX - (rect.left + rect.right) / 2) / ((rect.left + rect.right) / 2),
+                    (e.clientY - (rect.bottom + rect.top) / 2) / ((rect.bottom + rect.top) / 2));
+            canvas.addEventListener("mousedown", e => {
+                e.preventDefault();
+                this.throw_object(e, mouse_position(e), program_state, context);
+            });
+
+            // create room
+            // floor
+            let floor_transform = Mat4.rotation(Math.PI / 2, 1, 0, 0)
+                .times(Mat4.scale(this.room_size, this.room_size, 1))
+                .times(Mat4.translation(0, 0, -1));
+            this.walls.push(new Body(this.shapes.square, this.materials.floor, vec3(1, 1 + Math.random(), 1))
+                .emplace(floor_transform, vec3(0, 0, 0), 0));
+
+            // walls
+            let wall_transform = Mat4.scale(this.room_size, this.room_size, 1)
+                .times(Mat4.translation(0, 0, -1));
+            this.walls.push(new Body(this.shapes.square, this.materials.wall, vec3(1, 1 + Math.random(), 1))
+                .emplace(Mat4.translation(0, this.room_size / 2, this.room_size / 2).times(wall_transform),
+                    vec3(0, 0, 0), 0));
+            this.walls.push(new Body(this.shapes.square, this.materials.wall, vec3(1, 1 + Math.random(), 1))
+                .emplace(Mat4.translation(0, this.room_size / 2, -this.room_size / 2).times(wall_transform),
+                    vec3(0, 0, 0), 0));
+            wall_transform = Mat4.rotation(Math.PI / 2, 0, 1, 0).times(wall_transform);
+            this.walls.push(new Body(this.shapes.square, this.materials.wall, vec3(1, 1 + Math.random(), 1))
+                .emplace(Mat4.translation(this.room_size / 2, this.room_size / 2, 0).times(wall_transform),
+                    vec3(0, 0, 0), 0));
+            this.walls.push(new Body(this.shapes.square, this.materials.wall, vec3(1, 1 + Math.random(), 1))
+                .emplace(Mat4.translation(-this.room_size / 2, this.room_size / 2, 0).times(wall_transform),
+                    vec3(0, 0, 0), 0));
+
+        }
+
+        program_state.projection_transform = Mat4.perspective(
+            Math.PI / 4, context.width / context.height, 1, 100);
+
+        // *** Lights: *** Values of vector or point lights.
+        const light_position = vec4(0, 20, 8, 1);
+        program_state.lights = [new Light(light_position, color(1, 1, 1, 1), 100)];
+
+        const t = program_state.animation_time;
+        const dt = program_state.animation_delta_time;
+
         const {points, leeway} = this.colliders[this.collider_selection];
         const size = vec3(1 + leeway, 1 + leeway, 1 + leeway);
-        for (let b of this.bodies)
-            points.draw(context, program_state, b.drawn_location.times(Mat4.scale(...size)), this.bright, "LINE_STRIP");
-    }
 
-    show_explanation(document_element) {
-        document_element.innerHTML += `<p>This demo detects when some flying objects collide with one another, coloring them red when they do.  For a simpler demo that shows physics-based movement without objects that hit one another, see the demo called Inertia_Demo.
-                                     </p><p>Detecting intersections between pairs of stretched out, rotated volumes can be difficult, but is made easier by being in the right coordinate space.  The collision algorithm treats every shape like an ellipsoid roughly conforming to the drawn shape, and with the same transformation matrix applied.  Here these collision volumes are drawn in translucent purple alongside the real shape so that you can see them.
-                                     </p><p>This particular collision method is extremely short to code, as you can observe in the method \"check_if_colliding\" in the class called Body below.  It has problems, though.  Making every collision body a stretched sphere is a hack and doesn't handle the nuances of the actual shape being drawn, such as a cube's corners that stick out.  Looping through a list of discrete sphere points to see if the volumes intersect is *really* a hack (there are perfectly good analytic expressions that can test if two ellipsoids intersect without discretizing them into points, although they involve solving a high order polynomial).   On the other hand, for non-convex shapes a real collision method cannot be exact either, and is usually going to have to loop through a list of discrete tetrahedrons defining the shape anyway.
-                                     </p><p>This scene extends class Simulation, which carefully manages stepping simulation time for any scenes that subclass it.  It totally decouples the whole simulation from the frame rate, following the suggestions in the blog post <a href=\"https://gafferongames.com/post/fix_your_timestep/\" target=\"blank\">\"Fix Your Timestep\"</a> by Glenn Fielder.  Buttons allow you to speed up and slow down time to show that the simulation's answers do not change.</p>`;
+        for (let wall of this.walls) {
+            points.draw(context, program_state, wall.drawn_location, wall.material);
+        }
+
+        this.bodies = this.bodies.filter(b => b.end_time > t);
+        const collider = this.colliders[this.collider_selection];
+        if (this.bodies.length > 0) {
+            for (let i = 0; i < this.bodies.length; i++) {
+                let obj = this.bodies[i].body;
+
+                // collision detection
+
+                // gravity
+                obj.linear_velocity[1] -= this.gravity * 1/100;
+
+                // hit floor
+                if (obj.center[1] < 1 && obj.linear_velocity[1] < 0) {
+                    obj.linear_velocity[1] *= -.8;
+                }
+                // // hit left wall
+                // if (obj.center[0] < -this.room_size / 2 && obj.linear_velocity[0] < 0) {
+                //     obj.linear_velocity[0] *= -.8;
+                // }
+                // // hit backward wall
+                // if (obj.center[2] > this.room_size / 2 && obj.linear_velocity[2] > 0) {
+                //     obj.linear_velocity[2] *= -.8;
+                // }
+                // // hit forward wall
+                // if (obj.center[2] < -this.room_size / 2 && obj.linear_velocity[2] < 0) {
+                //     console.log("bounce")
+                //     obj.linear_velocity[2] *= -.8;
+                // }
+                // console.log("drew box")
+                obj.shape.draw(context, program_state, obj.drawn_location, obj.material);
+                obj.advance(1/1000);
+                obj.blend_state(t - this.bodies[i].start_time);
+                // console.log(obj.center);
+                // console.log(obj.drawn_location);
+            }
+
+        }
+
+        // TODO:  Draw your entire scene here.  Use this.draw_box( graphics_state, model_transform ) to call your helper.
     }
 }
