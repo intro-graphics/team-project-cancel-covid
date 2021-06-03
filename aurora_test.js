@@ -1,90 +1,86 @@
 import {defs, tiny} from './examples/common.js';
 
-const {
-    Vector, Vector3, vec, vec3, vec4, color, hex_color, Matrix, Mat4, Light, Shape, Material, Scene,
-} = tiny;
+const {Vector, Vector3, vec, vec3, vec4, color, hex_color, Matrix, Mat4,
+    Light, Shape, Material, Shader, Texture, Scene} = tiny;
 
-class Cube extends Shape {
-    constructor() {
-        super("position", "normal",);
-        // Loop 3 times (for each axis), and inside loop twice (for opposing cube sides):
-        this.arrays.position = Vector3.cast(
-            [-1, -1, -1], [1, -1, -1], [-1, -1, 1], [1, -1, 1], [1, 1, -1], [-1, 1, -1], [1, 1, 1], [-1, 1, 1],
-            [-1, -1, -1], [-1, -1, 1], [-1, 1, -1], [-1, 1, 1], [1, -1, 1], [1, -1, -1], [1, 1, 1], [1, 1, -1],
-            [-1, -1, 1], [1, -1, 1], [-1, 1, 1], [1, 1, 1], [1, -1, -1], [-1, -1, -1], [1, 1, -1], [-1, 1, -1]);
-        this.arrays.normal = Vector3.cast(
-            [0, -1, 0], [0, -1, 0], [0, -1, 0], [0, -1, 0], [0, 1, 0], [0, 1, 0], [0, 1, 0], [0, 1, 0],
-            [-1, 0, 0], [-1, 0, 0], [-1, 0, 0], [-1, 0, 0], [1, 0, 0], [1, 0, 0], [1, 0, 0], [1, 0, 0],
-            [0, 0, 1], [0, 0, 1], [0, 0, 1], [0, 0, 1], [0, 0, -1], [0, 0, -1], [0, 0, -1], [0, 0, -1]);
-        // Arrange the vertices into a square shape in texture space too:
-        this.indices.push(0, 1, 2, 1, 3, 2, 4, 5, 6, 5, 7, 6, 8, 9, 10, 9, 11, 10, 12, 13,
-            14, 13, 15, 14, 16, 17, 18, 17, 19, 18, 20, 21, 22, 21, 23, 22);
+export class Body {
+    // **Body** can store and update the properties of a 3D body that incrementally
+    // moves from its previous place due to velocities.  It conforms to the
+    // approach outlined in the "Fix Your Timestep!" blog post by Glenn Fiedler.
+    constructor(shape, material, size) {
+        Object.assign(this,
+            {shape, material, size})
     }
-}
 
-class Reversed_Cube extends Shape {
-    constructor() {
-        super("position", "normal",);
-        // Loop 3 times (for each axis), and inside loop twice (for opposing cube sides):
-        this.arrays.position = Vector3.cast(
-            [-1, -1, -1], [1, -1, -1], [-1, -1, 1], [1, -1, 1], [1, 1, -1], [-1, 1, -1], [1, 1, 1], [-1, 1, 1],
-            [-1, -1, -1], [-1, -1, 1], [-1, 1, -1], [-1, 1, 1], [1, -1, 1], [1, -1, -1], [1, 1, 1], [1, 1, -1],
-            [-1, -1, 1], [1, -1, 1], [-1, 1, 1], [1, 1, 1], [1, -1, -1], [-1, -1, -1], [1, 1, -1], [-1, 1, -1]);
-        this.arrays.normal = Vector3.cast(
-            [0, 1, 0], [0, 1, 0], [0, 1, 0], [0, 1, 0], [0, -1, 0], [0, -1, 0], [0, -1, 0], [0, -1, 0],
-            [1, 0, 0], [1, 0, 0], [1, 0, 0], [1, 0, 0], [-1, 0, 0], [-1, 0, 0], [-1, 0, 0], [-1, 0, 0],
-            [0, 0, -1], [0, 0, -1], [0, 0, -1], [0, 0, -1], [0, 0, 1], [0, 0, 1], [0, 0, 1], [0, 0, 1]);
-        // Arrange the vertices into a square shape in texture space too:
-        this.indices.push(0, 1, 2, 1, 3, 2, 4, 5, 6, 5, 7, 6, 8, 9, 10, 9, 11, 10, 12, 13,
-            14, 13, 15, 14, 16, 17, 18, 17, 19, 18, 20, 21, 22, 21, 23, 22);
+    // (within some margin of distance).
+    static intersect_cube(p, margin = 0) {
+        return p.every(value => value >= -1 - margin && value <= 1 + margin)
     }
-}
 
-class Cube_Outline extends Shape {
-    constructor() {
-        super("position", "color");
-        //  TODO (Requirement 5).
-        // When a set of lines is used in graphics, you should think of the list entries as
-        // broken down into pairs; each pair of vertices will be drawn as a line segment.
-        // Note: since the outline is rendered with Basic_shader, you need to redefine the position and color of each vertex
-
-        this.arrays.position = Vector3.cast(
-            [-1, -1, -1], [1, -1, -1],
-            [-1, -1, 1], [1, -1, 1],
-            [1, 1, -1], [-1, 1, -1],
-            [1, 1, 1], [-1, 1, 1],
-            [-1, -1, -1], [-1, -1, 1],
-            [-1, 1, -1], [-1, 1, 1],
-            [1, -1, 1], [1, -1, -1],
-            [1, 1, 1], [1, 1, -1],
-            [-1, -1, -1], [-1, 1, -1],
-            [1, -1, -1], [1, 1, -1],
-            [-1, -1, 1], [-1, 1, 1],
-            [1, -1, 1], [1, 1, 1]);
-
-        this.arrays.color = [
-            color(1,1,1,1), color(1,1,1,1),
-            color(1,1,1,1), color(1,1,1,1),
-            color(1,1,1,1), color(1,1,1,1),
-            color(1,1,1,1), color(1,1,1,1),
-            color(1,1,1,1), color(1,1,1,1),
-            color(1,1,1,1), color(1,1,1,1),
-            color(1,1,1,1), color(1,1,1,1),
-            color(1,1,1,1), color(1,1,1,1),
-            color(1,1,1,1), color(1,1,1,1),
-            color(1,1,1,1), color(1,1,1,1),
-            color(1,1,1,1), color(1,1,1,1),
-            color(1,1,1,1), color(1,1,1,1)
-        ];
-
-        this.indices = false;
+    static intersect_sphere(p, margin = 0) {
+        return p.dot(p) < 1 + margin;
     }
-}
 
-class Cube_Single_Strip extends Shape {
-    constructor() {
-        super("position", "normal");
-        // TODO (Requirement 6)
+    emplace(location_matrix, linear_velocity, angular_velocity, spin_axis = vec3(0, 0, 0).randomized(1).normalized()) {                               // emplace(): assign the body's initial values, or overwrite them.
+        this.center = location_matrix.times(vec4(0, 0, 0, 1)).to3();
+        this.rotation = Mat4.translation(...this.center.times(-1)).times(location_matrix);
+        this.previous = {center: this.center.copy(), rotation: this.rotation.copy()};
+        // drawn_location gets replaced with an interpolated quantity:
+        this.drawn_location = location_matrix;
+        this.temp_matrix = Mat4.identity();
+        return Object.assign(this, {linear_velocity, angular_velocity, spin_axis})
+    }
+
+    advance(time_amount) {
+        // advance(): Perform an integration (the simplistic Forward Euler method) to
+        // advance all the linear and angular velocities one time-step forward.
+        this.previous = {center: this.center.copy(), rotation: this.rotation.copy()};
+        // Apply the velocities scaled proportionally to real time (time_amount):
+        // Linear velocity first, then angular:
+        this.center = this.center.plus(this.linear_velocity.times(time_amount));
+        this.rotation.pre_multiply(Mat4.rotation(time_amount * this.angular_velocity, ...this.spin_axis));
+    }
+
+    // The following are our various functions for testing a single point,
+    // p, against some analytically-known geometric volume formula
+
+    blend_rotation(alpha) {
+        // blend_rotation(): Just naively do a linear blend of the rotations, which looks
+        // ok sometimes but otherwise produces shear matrices, a wrong result.
+
+        // TODO:  Replace this function with proper quaternion blending, and perhaps
+        // store this.rotation in quaternion form instead for compactness.
+        return this.rotation.map((x, i) => vec4(...this.previous.rotation[i]).mix(x, alpha));
+    }
+
+    blend_state(alpha) {
+        // blend_state(): Compute the final matrix we'll draw using the previous two physical
+        // locations the object occupied.  We'll interpolate between these two states as
+        // described at the end of the "Fix Your Timestep!" blog post.
+        this.drawn_location = Mat4.translation(...this.previous.center.mix(this.center, alpha))
+            .times(this.blend_rotation(alpha))
+            .times(Mat4.scale(...this.size));
+    }
+
+    check_if_colliding(b, collider) {
+        // check_if_colliding(): Collision detection function.
+        // DISCLAIMER:  The collision method shown below is not used by anyone; it's just very quick
+        // to code.  Making every collision body an ellipsoid is kind of a hack, and looping
+        // through a list of discrete sphere points to see if the ellipsoids intersect is *really* a
+        // hack (there are perfectly good analytic expressions that can test if two ellipsoids
+        // intersect without discretizing them into points).
+        if (this == b)
+            return false;
+        // Nothing collides with itself.
+        // Convert sphere b to the frame where a is a unit sphere:
+        const T = this.inverse.times(b.drawn_location, this.temp_matrix);
+
+        const {intersect_test, points, leeway} = collider;
+        // For each vertex in that b, shift to the coordinate frame of
+        // a_inv*b.  Check if in that coordinate frame it penetrates
+        // the unit sphere at the origin.  Leave some leeway.
+        return points.arrays.position.some(p =>
+            intersect_test(T.times(p.to4(1)).to3(), leeway));
     }
 }
 
@@ -93,27 +89,49 @@ export class Aurora_Test extends Scene {
     constructor() {
         // constructor(): Scenes begin by populating initial values like the Shapes and Materials they'll need.
         super();
-        this.hover = this.swarm = false;
-        // At the beginning of our program, load one of each of these shape definitions onto the GPU.
+
+        // Shapes
         this.shapes = {
-            'cube': new Cube(),
-            'outline': new Cube_Outline(),
-            'room': new (defs.Cube.prototype.make_flat_shaded_version()),
-            'wall': new (defs.Square.prototype.make_flat_shaded_version()),
-            'rcube': new Reversed_Cube(),
-            'fcube': new Cube(),
+            donut: new defs.Torus(15, 15, [[0, 2], [0, 1]]),
+            cone: new defs.Closed_Cone(4, 10, [[0, 2], [0, 1]]),
+            capped: new defs.Capped_Cylinder(4, 12, [[0, 2], [0, 1]]),
+            ball: new defs.Subdivision_Sphere(3, [[0, 1], [0, 1]]),
+            cube: new defs.Cube(),
+            prism: new (defs.Capped_Cylinder.prototype.make_flat_shaded_version())(10, 10, [[0, 2], [0, 1]]),
+            gem: new (defs.Subdivision_Sphere.prototype.make_flat_shaded_version())(2),
+            donut2: new (defs.Torus.prototype.make_flat_shaded_version())(20, 20, [[0, 2], [0, 1]]),
+            room: new (defs.Cube.prototype.make_flat_shaded_version()),
+            wall: new (defs.Square.prototype.make_flat_shaded_version()),
+            square: new defs.Square(),
         };
 
-        // *** Materials
+        // Textures
+        this.textures = {
+            rgb: new Texture("assets/rgb.jpg"),
+            earth: new Texture("assets/earth.gif"),
+            stars: new Texture("assets/stars.png"),
+            text: new Texture("assets/text.png"),
+        }
+
+        // Materials
         this.materials = {
             plastic: new Material(new defs.Phong_Shader(),
                 {ambient: .4, diffusivity: .6, color: hex_color("#ffffff")}),
             wallpaper: new Material(new defs.Phong_Shader(),
                 {ambient: 0.2, diffusivity: 1, color: hex_color("#c4aa7e")}),
+            stars: new Material(new defs.Phong_Shader(), {
+                ambient: .4, color: color(.4, .8, .4, 1),
+                texture: this.textures.stars}),
         };
-        // The white material and basic shader are used for drawing the outline.
-        this.white = new Material(new defs.Basic_Shader());
 
+        // Make simpler dummy shapes for representing all other shapes during collisions:
+        this.colliders = [
+            {intersect_test: Body.intersect_sphere, points: new defs.Subdivision_Sphere(1), leeway: .5},
+            {intersect_test: Body.intersect_sphere, points: new defs.Subdivision_Sphere(2), leeway: .3},
+            {intersect_test: Body.intersect_cube, points: new defs.Cube(), leeway: .1}
+        ];
+
+        this.bodies = [];
         this.throw_queue = [];
         this.gravity = 20;
     }
@@ -246,11 +264,6 @@ export class Aurora_Test extends Scene {
 
 
         const blue = hex_color("#1a9ffa");
-
-        let room_transform = Mat4.identity();
-        room_transform = room_transform.times(Mat4.translation(0,20,-20))
-            .times(Mat4.scale(50, 20, 40));
-        this.shapes.outline.draw(context, program_state, room_transform, this.white, "LINES");
 
         let model_transform = Mat4.identity();
         let initial_height = 10;
