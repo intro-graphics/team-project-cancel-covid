@@ -7,9 +7,9 @@ export class Body {
     // **Body** can store and update the properties of a 3D body that incrementally
     // moves from its previous place due to velocities.  It conforms to the
     // approach outlined in the "Fix Your Timestep!" blog post by Glenn Fiedler.
-    constructor(shape, material, size) {
+    constructor(shape, material, size, temporary, debris) {
         Object.assign(this,
-            {shape, material, size})
+            {shape, material, size, temporary, debris})
     }
 
     // (within some margin of distance).
@@ -22,9 +22,7 @@ export class Body {
     }
 
     emplace(location_matrix, linear_velocity, angular_velocity, spin_axis = vec3(0, 0, 0).randomized(1).normalized()) {                               // emplace(): assign the body's initial values, or overwrite them.
-        this.center = location_matrix.times(vec4(0.0, 0.0, 0.0, 1.0));
-        this.center = this.center.to3();
-        // console.log(this.center);
+        this.center = location_matrix.times(vec4(0, 0, 0, 1)).to3();
         this.rotation = Mat4.translation(...this.center.times(-1)).times(location_matrix);
         this.previous = {center: this.center.copy(), rotation: this.rotation.copy()};
         // drawn_location gets replaced with an interpolated quantity:
