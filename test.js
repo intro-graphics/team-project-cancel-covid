@@ -7,9 +7,9 @@ export class Body {
     // **Body** can store and update the properties of a 3D body that incrementally
     // moves from its previous place due to velocities.  It conforms to the
     // approach outlined in the "Fix Your Timestep!" blog post by Glenn Fiedler.
-    constructor(shape, material, size) {
+    constructor(shape, material, size, temporary, debris) {
         Object.assign(this,
-            {shape, material, size})
+            {shape, material, size, temporary, debris})
     }
 
     // (within some margin of distance).
@@ -223,22 +223,22 @@ export class Test extends Simulation {
         // Generate additional moving bodies if there ever aren't enough:
 
         if (this.bodies.length === 0) {
-            this.bodies.push(new Body(this.shapes.square, this.materials.plastic, vec3(1, 1 + Math.random(), 1))
+            this.bodies.push(new Body(this.shapes.square, this.materials.plastic, vec3(1, 1 + Math.random(), 1), false, false)
                 .emplace(Mat4.translation(0, -10, 0)
                     .times(Mat4.rotation(Math.PI / 2, 1, 0, 0)).times(Mat4.scale(50, 50, 1)),
                     vec3(0, 0, 0), 0));
         }
 
         while (this.bodies.length < 2)
-            this.bodies.push(new Body(this.shapes.cube, this.materials.plastic, vec3(1, 1 + Math.random(), 1))
+            this.bodies.push(new Body(this.shapes.cube, this.materials.plastic, vec3(1, 1 + Math.random(), 1), true, false)
                 .emplace(Mat4.translation(...vec3(0, 15, 0).randomized(10)),
                     vec3(0, -1, 0).randomized(2).normalized().times(3), Math.random()));
 
         // Delete bodies that stop or stray too far away:
-        this.bodies = this.bodies.filter(b => b.center.norm() < 50 && b.linear_velocity.norm() > 2 || b == this.bodies[0]);
+        this.bodies = this.bodies.filter(b => b.center.norm() < 50 && b.linear_velocity.norm() > 2 || !b.temporary);
 
         for (let a of this.bodies) {
-            if (a == this.bodies[0]) {
+            if (!a.temporary) {
                 continue;
             }
             // Gravity on Earth, where 1 unit in world space = 1 meter:
@@ -257,6 +257,16 @@ export class Test extends Simulation {
                 // If about to fall through floor, reverse y velocity:
                 if (b.linear_velocity[1] < 0) {
                     b.linear_velocity[1] *= -.8;
+                }
+                if (b.debris) {
+                    continue;
+                }
+                // Shattering process
+                let i = 0;
+                for (i = 0; i < 4; i++) {
+                    this.bodies.push(new Body(this.shapes.cube, this.materials.plastic, vec3(0.25, 0.25, 0.25), true, true)
+                        .emplace(b.drawn_location,
+                            vec3(0, 1, 0).randomized(2).normalized().times(3), Math.random()));
                 }
                 b.material = this.materials.plastic.override({color: color(0.5, 0, 0, 1)});
             }
