@@ -1,7 +1,7 @@
 import {defs, tiny} from './examples/common.js';
 
 // Pull these names into this module's scope for convenience:
-const {vec3, unsafe3, vec4, color, Mat4, Light, Shape, Material, Shader, Texture, Scene} = tiny;
+const {vec3, unsafe3, vec4, color, hex_color, Mat4, Light, Shape, Material, Shader, Texture, Scene} = tiny;
 
 export class Body {
     // **Body** can store and update the properties of a 3D body that incrementally
@@ -202,10 +202,15 @@ export class Test extends Simulation {
         this.collider_selection = 0;
         this.shapes.square = new defs.Square();
         const shader = new defs.Fake_Bump_Map(1);
-        this.material = new Material(shader, {
-            color: color(.4, .8, .4, 1),
-            ambient: .4, texture: this.data.textures.stars
-        })
+        // *** Materials
+        this.materials = {
+            plastic: new Material(new defs.Phong_Shader(),
+                {ambient: .4, diffusivity: .6, color: hex_color("#ffffff")}),
+            wallpaper: new Material(new defs.Phong_Shader(),
+                {ambient: 0.2, diffusivity: 1, color: hex_color("#c4aa7e")}),
+            bright: new Material(new defs.Phong_Shader(), 
+                {ambient: 1, diffusivity: 1, color: color(0, 1, 0, .5)})
+        };
     }
 
     random_color() {
@@ -218,22 +223,22 @@ export class Test extends Simulation {
         // Generate additional moving bodies if there ever aren't enough:
 
         if (this.bodies.length === 0) {
-            this.bodies.push(new Body(this.shapes.square, this.material.override(color(.5, .5, .5, 1)), vec3(1, 1 + Math.random(), 1))
+            this.bodies.push(new Body(this.shapes.square, this.materials.plastic, vec3(1, 1 + Math.random(), 1))
                 .emplace(Mat4.translation(0, -10, 0)
                     .times(Mat4.rotation(Math.PI / 2, 1, 0, 0)).times(Mat4.scale(50, 50, 1)),
                     vec3(0, 0, 0), 0));
         }
 
         while (this.bodies.length < 2)
-            this.bodies.push(new Body(this.shapes.cube, this.material.override(color(.5, .5, .5, 1)), vec3(1, 1 + Math.random(), 1))
+            this.bodies.push(new Body(this.shapes.cube, this.materials.plastic, vec3(1, 1 + Math.random(), 1))
                 .emplace(Mat4.translation(...vec3(0, 15, 0).randomized(10)),
                     vec3(0, -1, 0).randomized(2).normalized().times(3), Math.random()));
 
         // Delete bodies that stop or stray too far away:
-        this.bodies = this.bodies.filter(b => b.center.norm() < 50 && b.linear_velocity.norm() > 2 || b.shape === this.shapes.square);
+        this.bodies = this.bodies.filter(b => b.center.norm() < 50 && b.linear_velocity.norm() > 2 || b == this.bodies[0]);
 
         for (let a of this.bodies) {
-            if (a.shape === this.shapes.square) {
+            if (a == this.bodies[0]) {
                 continue;
             }
             // Gravity on Earth, where 1 unit in world space = 1 meter:
@@ -246,13 +251,13 @@ export class Test extends Simulation {
                     
         const collider = this.colliders[this.collider_selection];
         // Collider process
-        for (let a of this.bodies) {
-             // Cache the inverse of matrix of body "a" to save time.
-             a.inverse = Mat4.inverse(a.drawn_location);
-             for (let b of this.bodies) {
-                if (!a.check_if_colliding(b, collider))
-                    continue;
-                b.material = this.material.override({color: color(0.5, 0, 0, 1)});
+        for (let b of this.bodies) {
+            // Cache the inverse of matrix of body "a" to save time.
+            b.inverse = Mat4.inverse(b.drawn_location);
+            let a = this.bodies[0];
+            let r = a.check_if_colliding(b, collider);
+            if (r) {
+                b.material = this.materials.plastic.override({color: color(0.5, 0, 0, 1)});
             }
         }
     }
@@ -274,6 +279,10 @@ export class Test extends Simulation {
         //         .times(Mat4.rotation(Math.PI / 2, 1, 0, 0)).times(Mat4.scale(50, 50, 1)),
         //    this.material.override(this.data.textures.earth));
         // this.ground.shape.draw(context, program_state, Mat4.translation(0, -10, 0), this.ground.material);
+        const {points, leeway} = this.colliders[this.collider_selection];
+        const size = vec3(1 + leeway, 1 + leeway, 1 + leeway);
+        for (let b of this.bodies)
+            points.draw(context, program_state, b.drawn_location.times(Mat4.scale(...size)), this.materials.bright, "LINE_STRIP");
     }
 
     show_explanation(document_element) {
