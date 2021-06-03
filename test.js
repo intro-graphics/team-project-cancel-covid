@@ -243,9 +243,6 @@ export class Test extends Simulation {
             }
             // Gravity on Earth, where 1 unit in world space = 1 meter:
             a.linear_velocity[1] += dt * -9.8;
-            // If about to fall through floor, reverse y velocity:
-            if (a.center[1] < -8 && a.linear_velocity[1] < 0)
-                a.linear_velocity[1] *= -.8;
         }
 
                     
@@ -257,6 +254,10 @@ export class Test extends Simulation {
             let a = this.bodies[0];
             let r = a.check_if_colliding(b, collider);
             if (r) {
+                // If about to fall through floor, reverse y velocity:
+                if (b.linear_velocity[1] < 0) {
+                    b.linear_velocity[1] *= -.8;
+                }
                 b.material = this.materials.plastic.override({color: color(0.5, 0, 0, 1)});
             }
         }
