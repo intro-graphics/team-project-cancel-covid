@@ -290,7 +290,8 @@ export class Test_Data {
             square: new defs.Square(),
             teapot: new Shape_From_File("assets/teapot.obj"),
             amogus: new Shape_From_File( "assets/amogus.obj"),
-            igloo: new Shape_From_File('assets/igloo.obj')
+            igloo: new Shape_From_File('assets/igloo.obj'),
+            skull: new Shape_From_File('assets/skull.obj')
 
         };
     }
@@ -366,7 +367,10 @@ export class Rage_Room extends Simulation {
             }),
             amogusSkin: new Material(new defs.Fake_Bump_Map(1), {
             color: color(.5, .5, .5, 1),
-            ambient: .8, diffusivity: .9, specularity: .8, texture: new Texture('assets/amogusSkin.jpg')})
+            ambient: .8, diffusivity: .9, specularity: .8, texture: new Texture('assets/amogusSkin.jpg')}),
+            skullSkin: new Material(new defs.Fake_Bump_Map(1), {
+                color: color(.5, .5, .5, 1),
+                ambient: .8, diffusivity: .9, specularity: .8, texture: new Texture('assets/skull_skin.jpg')})
         };
 
         this.collider_selection = 0;
@@ -524,7 +528,7 @@ export class Rage_Room extends Simulation {
                     // Shattering process
                     let i = 0;
                     for (i = 0; i < 4; i++) {
-                        this.bodies.push(new Body(this.shapes.cube, this.materials.plastic, s.times(1/9), U, true, 0)
+                        this.bodies.push(new Body(this.shapes.cube, this.materials.skullSkin, s.times(1/9), U, true, 0)
                             .emplace(b.drawn_location,
                                 vec3(0, 1, 0).randomized(2).normalized().times(3), Math.random()));
                     }
