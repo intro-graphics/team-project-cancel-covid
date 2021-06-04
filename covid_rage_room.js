@@ -5,7 +5,7 @@ const {Vector, Vector3, vec, vec3, vec4, color, hex_color, Matrix, Mat4,
     Light, Shape, Material, Shader, Texture, Scene} = tiny;
 
 // Types of walls
-const C = 0;
+const R = 0;
 const F = 1;
 const N = 2;
 const S = 3;
@@ -381,6 +381,8 @@ export class Rage_Room extends Simulation {
         this.drop = true;
         this.current_shape = this.shapes.teapot;
         this.current_material = this.materials.bumps;
+        this.debris_shape = this.shapes.cube;
+        this.secret = 0;
 
         this.shapes_list = ["teapot", "cube", "amogus", "igloo"];
         this.materials_list = ["bumps", "plastic", "amogus", "amogus"];
@@ -443,7 +445,7 @@ export class Rage_Room extends Simulation {
             let ceiling_transform = Mat4.rotation(Math.PI / 2, 1, 0, 0)
                 .times(Mat4.scale(this.room_size, this.room_size, 1))
                 .times(Mat4.translation(0, 0, -this.room_size));
-            this.bodies.push(new Body(this.shapes.square, this.materials.ceiling, vec3(1, 1, 1), C, false, 0)
+            this.bodies.push(new Body(this.shapes.square, this.materials.ceiling, vec3(1, 1, 1), R, false, 0)
                 .emplace(ceiling_transform, vec3(0, 0, 0), 0));
         }
 
@@ -535,7 +537,7 @@ export class Rage_Room extends Simulation {
                     // Shattering process
                     let i = 0;
                     for (i = 0; i < 4; i++) {
-                        this.bodies.push(new Body(this.shapes.cube, this.materials.plastic, s.times(1/9), U, true, 0)
+                        this.bodies.push(new Body(this.debris_shape, this.materials.plastic, s.times(1/9), U, true, 0)
                             .emplace(b.drawn_location,
                                 vec3(0, 1, 0).randomized(2).normalized().times(3), Math.random()));
                     }
@@ -658,6 +660,35 @@ export class Rage_Room extends Simulation {
                 }
             });
 
+            // secret!!
+            document.addEventListener("keydown", e => {
+                e.preventDefault();
+                if (this.secret == 0 && e.code === "KeyT") {
+                    this.secret = 1;
+                }
+                else if (this.secret == 1 && e.code === "KeyE") {
+                    this.secret = 2;
+                }
+                else if (this.secret == 2 && e.code === "KeyA") {
+                    this.secret = 3;
+                }
+                else if (this.secret == 3 && e.code === "KeyP") {
+                    this.secret = 4;
+                }
+                else if (this.secret == 4 && e.code === "KeyO") {
+                    this.secret = 5;
+                }
+                else if (this.secret == 5 && e.code === "KeyT") {
+                    this.secret = 6;
+                }
+                else if (this.secret == 6 && e.code === "KeyS") {
+                    console.log("teapots");
+                    this.debris_shape = this.shapes.teapot;
+                }
+                else {
+                    this.secret = 0;
+                }
+            });
         }
 
 
