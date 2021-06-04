@@ -555,7 +555,7 @@ export class Rage_Room extends Simulation {
         a[3] = vec4(0, 0, 0, a[3][3]);
         a[2][3] = a[2][3] - 5;      // create an object in front
 
-        this.bodies.push(new Body(this.shapes.igloo, this.materials.amogusSkin, vec3(2, 2, 2), U, false, 0)
+        this.bodies.push(new Body(this.shapes.teapot, this.materials.bumps, vec3(2, 2, 2), U, false, 0)
                 .emplace(a, vec3(0, -1, 0).randomized(2).normalized().times(3), Math.random()));
     }
 
