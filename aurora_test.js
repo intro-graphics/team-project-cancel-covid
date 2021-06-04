@@ -227,6 +227,11 @@ export class Aurora_Test extends Simulation {
             earth: new Texture("assets/earth.gif"),
             stars: new Texture("assets/stars.png"),
             text: new Texture("assets/text.png"),
+            wall: new Texture('assets/wall.jpg'),
+            windowWall: new Texture("assets/window_wall2.jpg"),
+            floor: new Texture("assets/floor.jpg"),
+            ceiling: new Texture("assets/ceiling.jpg"),
+            plainWall: new Texture('assets/plain_wall.jpg')
         };
 
         // Materials
@@ -243,24 +248,33 @@ export class Aurora_Test extends Simulation {
                 color: color(.5, .5, .5, 1), ambient: .2,
                 texture: this.textures.rgb
             }),
-            active_color: new Material(new defs.Fake_Bump_Map(1), {
-                color: color(.5, 0, 0, 1), ambient: .5,
-                texture: this.textures.rgb
+            plainWall: new Material(new defs.Fake_Bump_Map(1), {
+                color: color(0, 0, 0, 1), ambient: 1,
+                texture: this.textures.plainWall
+            }),
+            brickWall: new Material(new defs.Fake_Bump_Map(1), {
+                color: color(0, 0, 0, 1), ambient: 1,
+                texture: this.textures.wall
             }),
             bright: new Material(new defs.Phong_Shader(), {
                 color: color(0, 1, 0, .5), ambient: 1
             }),
-            floor: new Material(new defs.Phong_Shader(1), {
-                ambient: .4, color: color(.4, .8, .4, 1),
+            ceiling: new Material(new defs.Fake_Bump_Map(1), {
+                color: color(0, 0, 0, 1), ambient: 1,
+                texture: this.textures.ceiling
+            }),
+            floor: new Material(new defs.Fake_Bump_Map(1), {
+                color: color(0, 0, 0, 1), ambient: 1,
+                texture: this.textures.floor
             }),
             wall: new Material(new defs.Phong_Shader(1), {
-                ambient: .4, color: color(.4, .8, .4, 1),
+                ambient: .4, color: color(.2,.2,.6,1),
             }),
         };
 
         this.collider_selection = 0;
         this.gravity = -9.8;
-        this.room_size = 75;
+        this.room_size = 50;
     }
 
     random_color() {
@@ -273,32 +287,44 @@ export class Aurora_Test extends Simulation {
         // Generate additional moving bodies if there ever aren't enough:
 
         if (this.bodies.length === 0) {
-            //this.bodies.push(new Body(this.shapes.square, this.materials.plastic, vec3(1, 1 + Math.random(), 1), false, false)
-            //    .emplace(Mat4.translation(0, -10, 0)
-            //            .times(Mat4.rotation(Math.PI / 2, 1, 0, 0))
-            //            .times(Mat4.scale(50, 50, 1)),
-            //        vec3(0, 0, 0), 0));
-            let floor_transform = Mat4.rotation(Math.PI / 2, 1, 0, 0)
-                .times(Mat4.scale(this.room_size, this.room_size, 1))
+
+            let floor_transform = Mat4.rotation(Math.PI / 2, 1, 0, 0).times(Mat4.scale(this.room_size, this.room_size, 1))
                 .times(Mat4.translation(0, 0, -1));
-            this.bodies.push(new Body(this.shapes.square, this.materials.floor, vec3(1, 1 + Math.random(), 1), false, false)
+
+            let ceiling_transform = Mat4.rotation(Math.PI / 2, 1, 0, 0).times(Mat4.scale(this.room_size, this.room_size, 1))
+                .times(Mat4.translation(0, 0, -this.room_size));
+
+            // floor
+            this.bodies.push(new Body(this.shapes.square, this.materials.floor, vec3(1, 1, 1), false, false)
                 .emplace(floor_transform, vec3(0, 0, 0), 0));
 
-            // walls
-            let wall_transform = Mat4.scale(this.room_size, this.room_size, 1)
-                .times(Mat4.translation(0, 0, -1));
-            this.bodies.push(new Body(this.shapes.square, this.materials.wall, vec3(1, 1 + Math.random(), 1), false, false)
-                .emplace(Mat4.translation(0, this.room_size / 2, this.room_size / 2).times(wall_transform),
+            // ceiling
+            this.bodies.push(new Body(this.shapes.square, this.materials.ceiling, vec3(1, 1, 1), false, false)
+                .emplace(ceiling_transform, vec3(0, 0, 0), 0));
+
+            // walls ** Mat4.translation(backward/forward, up/down, left/right)
+            let wall_transform = Mat4.scale(this.room_size, this.room_size, 1).times(Mat4.translation(0, 0, -1));
+
+            // wall straight ahead
+            this.bodies.push(new Body(this.shapes.square, this.materials.plainWall, vec3(1, 1, 1), false, false)
+            .emplace(Mat4.translation(0, this.room_size +1, -this.room_size +1).times(wall_transform),
+                vec3(0, 0, 0), 0));
+
+            // wall right behind
+            this.bodies.push(new Body(this.shapes.square, this.materials.plainWall, vec3(1, 1, 1), false, false)
+                .emplace(Mat4.translation(0, this.room_size+1, this.room_size +1).times(wall_transform),
                     vec3(0, 0, 0), 0));
-            this.bodies.push(new Body(this.shapes.square, this.materials.wall, vec3(1, 1 + Math.random(), 1), false, false)
-                .emplace(Mat4.translation(0, this.room_size / 2, -this.room_size / 2).times(wall_transform),
-                    vec3(0, 0, 0), 0));
+
             wall_transform = Mat4.rotation(Math.PI / 2, 0, 1, 0).times(wall_transform);
-            this.bodies.push(new Body(this.shapes.square, this.materials.wall, vec3(1, 1 + Math.random(), 1), false, false)
-                .emplace(Mat4.translation(this.room_size / 2, this.room_size / 2, 0).times(wall_transform),
+
+            // wall to the right
+            this.bodies.push(new Body(this.shapes.square, this.materials.brickWall, vec3(1, 1, 1), false, false)
+                .emplace(Mat4.translation(this.room_size+1, this.room_size+1, 0).times(wall_transform),
                     vec3(0, 0, 0), 0));
-            this.bodies.push(new Body(this.shapes.square, this.materials.wall, vec3(1, 1 + Math.random(), 1), false, false)
-                .emplace(Mat4.translation(-this.room_size / 2, this.room_size / 2, 0).times(wall_transform),
+
+            // wall to the left
+            this.bodies.push(new Body(this.shapes.square, this.materials.plainWall, vec3(1, 1, 1), false, false)
+                .emplace(Mat4.translation(-this.room_size+1, this.room_size+1, 0).times(wall_transform),
                     vec3(0, 0, 0), 0));
         }
 
