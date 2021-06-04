@@ -571,7 +571,6 @@ export class Rage_Room extends Simulation {
         let center_world_near = Mat4.inverse(P.times(W)).times(center_ndc_near);
         let camera_pos = Mat4.inverse(P.times(W)).times(center_ndc_near);
         let dir = W.times(pos_ndc_far).minus(W.times(center_ndc_near));
-        console.log(dir);
 
         pos_world_far.scale_by(1 / pos_world_far[3]);
         center_world_near.scale_by(1 / center_world_near[3]);
@@ -580,21 +579,16 @@ export class Rage_Room extends Simulation {
         direction_world.scale_by(1/2);
         direction_world[1] = -direction_world[1];
 
-        console.log(center_world_near);
-        console.log(direction_world);
-
         // convert to a translation matrix
         let a = Mat4.inverse(P.times(W));
         a[0] = vec4(1, 0, 0, a[0][3]);
         a[1] = vec4(0, 1, 0, a[1][3]);
         a[2] = vec4(0, 0, 1, a[2][3]);
         a[3] = vec4(0, 0, 0, a[3][3]);
-        console.log(a);
 
         let b = new Body(this.shapes.teapot, this.materials.bumps, vec3(1, 1, 1), U, false, 0)
             .emplace(a, direction_world, 0);
         this.bodies.push(b);
-        console.log(b);
     }
 
     make_control_panel() {
