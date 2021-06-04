@@ -613,7 +613,7 @@ export class Rage_Room extends Simulation {
             this.current_shape = this.shapes.igloo;
             this.current_material = this.materials.amogusSkin;
         });
-        this.key_triggered_button("Skull", ["Control", "#"], () => {
+        this.key_triggered_button("Skull", ["Control", "3"], () => {
             this.shape_name = "Skull";
             this.current_shape = this.shapes.skull;
             this.current_material = this.materials.skullSkin;
