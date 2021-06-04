@@ -1,30 +1,39 @@
-# tiny-graphics.js
+# Covid Rage Room
 
-This is a small, single file JavaScript utility.  It organizes WebGL programs to be object-oriented and minimally cluttered.  
+## Team 17: Nelson Truong, Aurora Yeh, Pompiliu Girlonta
 
-Writing code with raw JavaScript and WebGL can be repetitive and tedious.  Using frameworks like three.js can create an undesired separation between you and the raw JavaScript and WebGL and common graphics operations you want to learn.  Unlike other frameworks, tiny-graphics.js is purpose-built for education, has small source code, and teaches you how it is made.
+### Introduction
 
-This tiny library gives your WebGL program access to linear algebra routines, useful UI controls and readouts, and the drawing utilities needed by modern shader-based graphics.  It factors away the repetitive logic of GPU communication into re-usable objects.  The objects can be seamlessly shared between multiple WebGL contexts (drawing regions) on a web page.
+Our project idea was to create a room with objects you could smash over and over. We’re basically taking the idea of a rage room (rooms that people pay to use to smash fake objects for anger therapy) but trying to implement it in a virtual game.
 
-The tiny-graphics.js software library has accompanied UCLA Computer Science's 174a course (Intro to Computer Graphics) since 2016, replacing Edward Angel's supplemental code from his textbook "Interactive Computer Graphics: A Top-Down Approach with WebGL".  Compared to Angel's library, tiny-graphics.js offers more organization and functionality.
 
-This code library accompanies and supports a web project by the same author called "The Encyclopedia of Code", a crowd-sourced repository of WebGL demos and educational tutorials that uses an online editor.
+![](doc/room.png)
 
-To run a sample using tiny-graphics.js, visit its GitHub Pages link: https://encyclopedia-of-code.github.io/tiny-graphics-js/
+![](doc/dropping.gif)
 
-To see all the demos and edit them:  Open the included "host.bat" or "host.command" file, then open localhost in your browser.  Open Developer Tools and create a workspace for your new folder.  Now you can edit the files, which is necessary to view the different demos.
+![](doc/throwing.gif)
 
-To select a demo, open and edit main-scene.js.  Assign your choice to the Main_Scene variable.  Your choices for scenes are:
+### Advanced Features
 
-* Minimal_Webgl_Demo
-* Transforms_Sandbox
-* Axes_Viewer_Test_Scene
-* Inertia_Demo
-* Collision_Demo
-* Many_Lights_Demo
-* Obj_File_Demo
-* Text_Demo
-* Scene_To_Texture_Demo
-* Surfaces_Demo
+#### Collision Detection
 
-The code comments in each file should help, especially if you look at the definition of Transforms_Sandbox.  So should the explanations that the demos print on the page.  Enjoy!
+The collision detection uses the exact same function as the check_if_colliding() function from the Collision Demo. To check if an object, more specifically a Body object, is colliding with another, we treat both objects as ellipsoids and check if any points overlap. This function is used whenever a time step elapses to see if any objects have collided with a wall in the room. Depending on the wall it collides with, we can determine how to make the object “bounce” off in a realistic fashion.
+
+Each Body object has several properties (shape, material, size, temporary, debris) that are defined when it is created. The temporary property determines what kind of object it is, for example, if a.temporary === U then it is not a wall. Each wall must make the objects bounce a certain direction when a collision is detected, so this property helps determine whether the object is bouncing off the floor, a certain wall, or the roof of the room.
+
+The debris property is also used to determine if the object is a product of shattering. Once the primary object collides with the room, tinier objects are created to emulate debris. Each of these tiny objects should continue to collide with the room but do not create more debris.
+
+#### Mouse Picking
+
+Mouse picking was based on the teapot demo from week 7 Discussion 1B. First an event listener is added to the canvas that detects when the mouse is clicked (mousedown). The position of the mouse click is saved and scaled according to the bounding box to get coordinates within the range of -1 and 1, which is in NDCS. 
+
+To convert coordinates from world space to NDCS, you left-multiply a vector by the camera inverse matrix (W) and then left-multiply the result by the projection transform matrix (P). Therefore, to get from NDCS back to world space, you multiply a vector in NDCS by (WP)-1.
+
+An object is thrown from the center of the screen towards the position the mouse is clicked. To get the center of the screen, left-multiply (0, 0, 0, 1) by (WP)-1 and homogenize. To get the position the object is getting thrown towards, left-multiply (mouseX, mouseY, 1, 1) by (WP)-1 and homogenize. Subtracting the two vectors gets the initial_velocity vector, which can be scaled to change the throwing speed. In our code, the y-direction is reversed, so we had to negate that. 
+
+To get the center position for where to create the object, take (WP)-1 and replace the upper left 3x3 matrix with the identity, turning it into a 4x4 translation matrix. 
+
+### References
+
+
+examples/collision_demo.js -  Used the Body, Simulation, and Collision Demo classes for reference
