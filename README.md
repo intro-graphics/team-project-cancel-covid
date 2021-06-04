@@ -4,7 +4,9 @@
 
 ### Introduction
 
-Our project idea was to create a room with objects you could smash over and over. We’re basically taking the idea of a rage room (rooms that people pay to use to smash fake objects for anger therapy) but trying to implement it in a virtual game.
+Our project idea was to create a room with objects you could smash over and over. We’re basically taking the idea of a rage room (rooms that people pay to use to smash objects for anger therapy) but trying to implement it in a virtual environment. For starters, this means using multiple complex features, such as physics, collision detection, and a shattering effect of the initial object. The shattering effect would have yielded much potential if we could have expanded to using multiple different frameworks such as three.js or perhaps integrated Blender into tiny-graphics.js.
+
+
 
 
 ![](doc/room.png)
