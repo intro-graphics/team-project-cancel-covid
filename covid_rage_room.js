@@ -528,7 +528,7 @@ export class Rage_Room extends Simulation {
                     // Shattering process
                     let i = 0;
                     for (i = 0; i < 4; i++) {
-                        this.bodies.push(new Body(this.shapes.cube, this.materials.skullSkin, s.times(1/9), U, true, 0)
+                        this.bodies.push(new Body(this.shapes.cube, this.materials.plastic, s.times(1/9), U, true, 0)
                             .emplace(b.drawn_location,
                                 vec3(0, 1, 0).randomized(2).normalized().times(3), Math.random()));
                     }
@@ -599,7 +599,7 @@ export class Rage_Room extends Simulation {
         this.key_triggered_button("Throw", ["t"], () => {
             this.drop = false;
             this.reset_camera = true;
-            this.camera = Mat4.translation(0, -15, -30);
+            this.camera = Mat4.translation(0, -20, -30);
         });
 
         // Switch throwing objects
@@ -608,13 +608,17 @@ export class Rage_Room extends Simulation {
             this.current_shape = this.shapes.teapot;
             this.current_material = this.materials.bumps;
         });
-        // Switch throwing objects
         this.key_triggered_button("Igloo", ["Control", "2"], () => {
             this.shape_name = "Igloo";
             this.current_shape = this.shapes.igloo;
             this.current_material = this.materials.amogusSkin;
-            console.log(this.shapes.igloo);
         });
+        this.key_triggered_button("Skull", ["Control", "#"], () => {
+            this.shape_name = "Skull";
+            this.current_shape = this.shapes.skull;
+            this.current_material = this.materials.skullSkin;
+        });
+
         this.new_line();
         this.live_string(box => {
             box.textContent = "Current Shape: " + this.shape_name;
