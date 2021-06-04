@@ -557,11 +557,10 @@ export class Rage_Room extends Simulation {
         let center_ndc_near = vec4(0.0, 0.0, 0.0, 1.0);
 
         let P = program_state.program_state.projection_transform;
-        let V = program_state.program_state.camera_transform;
         let W = program_state.program_state.camera_inverse;
 
-        let pos_world_far = Mat4.inverse(P.times(V)).times(pos_ndc_far);
-        let center_world_near = Mat4.inverse(P.times(V)).times(center_ndc_near);
+        let pos_world_far = Mat4.inverse(P.times(W)).times(pos_ndc_far);
+        let center_world_near = Mat4.inverse(P.times(W)).times(center_ndc_near);
         let camera_pos = Mat4.inverse(P.times(W)).times(center_ndc_near);
         let dir = W.times(pos_ndc_far).minus(W.times(center_ndc_near));
         console.log(dir);
@@ -584,7 +583,7 @@ export class Rage_Room extends Simulation {
         a[3] = vec4(0, 0, 0, a[3][3]);
         console.log(a);
 
-        let b = new Body(this.shapes.teapot, this.materials.plastic, vec3(1, 1, 1), U, false, 0)
+        let b = new Body(this.shapes.teapot, this.materials.bumps, vec3(1, 1, 1), U, false, 0)
             .emplace(a, direction_world, 0);
         this.bodies.push(b);
         console.log(b);
