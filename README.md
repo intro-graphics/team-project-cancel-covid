@@ -14,6 +14,7 @@ The inspiration for this came from different games, but primarily Garry's Mod se
 - complex breaking and shattering of the 3D objects
 - reflection coefficients for shiny materials
 - etc.
+
 However this would require the extensive use of a software like Blender to create and edit the models, especially when it comes to the breaking points.
 
 What we see in the screenshots below are the inital setup of the room. We created the room using the Body class included in tiny-graphics.js. We downloaded some jpgs and formatted them all to be 512 x 512 pixels, then we imported them as textures and then added them to our materials class. After adding it to the Body class, we adjusted the ambience and the specularity, and lined it up. There were some initial issues where the walls were off by 1, so through trial and error we fixed them and lined them all up.
