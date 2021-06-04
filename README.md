@@ -11,6 +11,10 @@ Our project idea was to create a room with objects you could smash over and over
 
 ![](doc/room.png)
 
+![](doc/teapot.png)
+
+![](doc/igloo.png)
+
 ![](doc/dropping.gif)
 
 ![](doc/throwing.gif)
