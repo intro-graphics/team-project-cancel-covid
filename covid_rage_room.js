@@ -307,7 +307,10 @@ export class Test_Data {
             donut2: new (defs.Torus.prototype.make_flat_shaded_version())(20, 20, [[0, 2], [0, 1]]),
             rcube: new ReversedCube(),
             square: new defs.Square(),
-            teapot: new Shape_From_File("assets/teapot.obj")
+            teapot: new Shape_From_File("assets/teapot.obj"),
+            amogus: new Shape_From_File( "assets/amogus.obj"),
+            igloo: new Shape_From_File('assets/igloo.obj')
+
         };
     }
 
@@ -342,7 +345,8 @@ export class Rage_Room extends Simulation {
             windowWall: new Texture("assets/window_wall2.jpg"),
             floor: new Texture("assets/floor.jpg"),
             ceiling: new Texture("assets/ceiling.jpg"),
-            plainWall: new Texture('assets/plain_wall.jpg')
+            plainWall: new Texture('assets/plain_wall.jpg'),
+            amogusSkin: new Texture('assets/amogusSkin.jpg')
         };
 
         // Materials
@@ -383,7 +387,11 @@ export class Rage_Room extends Simulation {
             }),
             bumps: new Material(new defs.Fake_Bump_Map(1), {
             color: color(.5, .5, .5, 1),
-                ambient: .3, diffusivity: .5, specularity: .5, texture: new Texture("assets/stars.png")}),
+                ambient: .3, diffusivity: .5, specularity: .5, texture: new Texture("assets/stars.png")
+            }),
+            amogusSkin: new Material(new defs.Fake_Bump_Map(1), {
+            color: color(.5, .5, .5, 1),
+            ambient: .8, diffusivity: .9, specularity: .8, texture: new Texture('assets/amogusSkin.jpg')})
         };
 
         this.collider_selection = 0;
@@ -547,7 +555,7 @@ export class Rage_Room extends Simulation {
         a[3] = vec4(0, 0, 0, a[3][3]);
         a[2][3] = a[2][3] - 5;      // create an object in front
 
-        this.bodies.push(new Body(this.shapes.teapot, this.materials.bumps, vec3(2, 2, 2), U, false, 0)
+        this.bodies.push(new Body(this.shapes.igloo, this.materials.amogusSkin, vec3(2, 2, 2), U, false, 0)
                 .emplace(a, vec3(0, -1, 0).randomized(2).normalized().times(3), Math.random()));
     }
 
