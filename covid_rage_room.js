@@ -114,24 +114,6 @@ export class Shape_From_File extends Shape {                                   /
     }
 }
 
-class ReversedCube extends Shape {
-    constructor() {
-        super("position", "normal",);
-        // Loop 3 times (for each axis), and inside loop twice (for opposing cube sides):
-        this.arrays.position = Vector3.cast(
-            [-1, -1, -1], [1, -1, -1], [-1, -1, 1], [1, -1, 1], [1, 1, -1], [-1, 1, -1], [1, 1, 1], [-1, 1, 1],
-            [-1, -1, -1], [-1, -1, 1], [-1, 1, -1], [-1, 1, 1], [1, -1, 1], [1, -1, -1], [1, 1, 1], [1, 1, -1],
-            [-1, -1, 1], [1, -1, 1], [-1, 1, 1], [1, 1, 1], [1, -1, -1], [-1, -1, -1], [1, 1, -1], [-1, 1, -1]);
-        this.arrays.normal = Vector3.cast(
-            [0, 1, 0], [0, 1, 0], [0, 1, 0], [0, 1, 0], [0, -1, 0], [0, -1, 0], [0, -1, 0], [0, -1, 0],
-            [1, 0, 0], [1, 0, 0], [1, 0, 0], [1, 0, 0], [-1, 0, 0], [-1, 0, 0], [-1, 0, 0], [-1, 0, 0],
-            [0, 0, -1], [0, 0, -1], [0, 0, -1], [0, 0, -1], [0, 0, 1], [0, 0, 1], [0, 0, 1], [0, 0, 1]);
-        // Arrange the vertices into a square shape in texture space too:
-        this.indices.push(0, 1, 2, 1, 3, 2, 4, 5, 6, 5, 7, 6, 8, 9, 10, 9, 11, 10, 12, 13,
-            14, 13, 15, 14, 16, 17, 18, 17, 19, 18, 20, 21, 22, 21, 23, 22);
-    }
-}
-
 export class Body {
     // **Body** can store and update the properties of a 3D body that incrementally
     // moves from its previous place due to velocities.  It conforms to the
@@ -305,19 +287,12 @@ export class Test_Data {
             prism: new (defs.Capped_Cylinder.prototype.make_flat_shaded_version())(10, 10, [[0, 2], [0, 1]]),
             gem: new (defs.Subdivision_Sphere.prototype.make_flat_shaded_version())(2),
             donut2: new (defs.Torus.prototype.make_flat_shaded_version())(20, 20, [[0, 2], [0, 1]]),
-            rcube: new ReversedCube(),
             square: new defs.Square(),
             teapot: new Shape_From_File("assets/teapot.obj"),
             amogus: new Shape_From_File( "assets/amogus.obj"),
             igloo: new Shape_From_File('assets/igloo.obj')
 
         };
-    }
-
-    random_shape(shape_list = this.shapes) {
-        // random_shape():  Extract a random shape from this.shapes.
-        const shape_names = Object.keys(shape_list);
-        return shape_list[shape_names[~~(shape_names.length * Math.random())]]
     }
 }
 
@@ -400,6 +375,22 @@ export class Rage_Room extends Simulation {
 
         // Decides whether to drop an object or not
         this.drop = true;
+        this.current_shape = this.shapes.teapot;
+        this.current_material = this.materials.bumps;
+
+        this.shapes_list = ["teapot", "cube", "amogus", "igloo"];
+        this.materials_list = ["bumps", "plastic", "amogus", "amogus"];
+        this.shape_name = "Teapot";
+    }
+
+    random_shape(shape_list = this.shapes_list) {
+        // random_shape():  Extract a random shape from this.shapes.
+        return this.shapes[shape_list[~~(shape_list.length * Math.random())]]
+    }
+
+    random_texture(materials_list = this.materials_list) {
+        // random_shape():  Extract a random shape from this.shapes.
+        return this.materials[materials_list[~~(materials_list.length * Math.random())]]
     }
 
     update_state(dt) {
@@ -555,7 +546,7 @@ export class Rage_Room extends Simulation {
         a[3] = vec4(0, 0, 0, a[3][3]);
         a[2][3] = a[2][3] - 5;      // create an object in front
 
-        this.bodies.push(new Body(this.shapes.igloo, this.materials.amogusSkin, vec3(2, 2, 2), U, false, 0)
+        this.bodies.push(new Body(this.current_shape, this.current_material, vec3(2, 2, 2), U, false, 0)
                 .emplace(a, vec3(0, -1, 0).randomized(2).normalized().times(3), Math.random()));
     }
 
@@ -586,7 +577,7 @@ export class Rage_Room extends Simulation {
         a[2] = vec4(0, 0, 1, a[2][3]);
         a[3] = vec4(0, 0, 0, a[3][3]);
 
-        let b = new Body(this.shapes.teapot, this.materials.bumps, vec3(1, 1, 1), U, false, 0)
+        let b = new Body(this.current_shape, this.current_material, vec3(1, 1, 1), U, false, 0)
             .emplace(a, direction_world, 0);
         this.bodies.push(b);
     }
@@ -605,6 +596,24 @@ export class Rage_Room extends Simulation {
             this.drop = false;
             this.reset_camera = true;
             this.camera = Mat4.translation(0, -15, -30);
+        });
+
+        // Switch throwing objects
+        this.key_triggered_button("Teapot", ["Control", "1"], () => {
+            this.shape_name = "Teapot";
+            this.current_shape = this.shapes.teapot;
+            this.current_material = this.materials.bumps;
+        });
+        // Switch throwing objects
+        this.key_triggered_button("Igloo", ["Control", "2"], () => {
+            this.shape_name = "Igloo";
+            this.current_shape = this.shapes.igloo;
+            this.current_material = this.materials.amogusSkin;
+            console.log(this.shapes.igloo);
+        });
+        this.new_line();
+        this.live_string(box => {
+            box.textContent = "Current Shape: " + this.shape_name;
         });
     }
 
