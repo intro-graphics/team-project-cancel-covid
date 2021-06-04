@@ -270,6 +270,10 @@ export class Test extends Simulation {
                 texture: this.textures.stars
             }),
         };
+
+        // Decides whether to drop an object or not
+        this.drop = true;
+
     }
 
     random_color() {
@@ -319,9 +323,14 @@ export class Test extends Simulation {
         //    this.bodies.push(new Body(this.shapes.cube, this.materials.plastic, vec3(1, 1, 1), U, false, 0)
         //        .emplace(Mat4.translation(...vec3(0, 15, 0).randomized(10)),
         //            vec3(0, -1, 0).randomized(2).normalized().times(3), Math.random()));
+        if (this.drop && this.bodies.length < 6) {
+            this.bodies.push(new Body(this.shapes.cube, this.materials.plastic, vec3(2, 2, 2), U, false, 0)
+                .emplace(Mat4.translation(...vec3(0, 30, -20).randomized(10)),
+                    vec3(0, -1, 0).randomized(2).normalized().times(3), Math.random()));
+        }
 
         // Delete bodies that have lasted for too long;
-        this.bodies = this.bodies.filter(b => (!b.debris && b.duration < 100) || (b.debris && b.duration < 10));
+        this.bodies = this.bodies.filter(b => (!b.debris && b.duration < 100) || (b.debris && b.duration < 8));
 
         // Delete bodies that have become too small;
         this.bodies = this.bodies.filter(b => b.size.dot(b.size) > 0.001);
@@ -401,7 +410,7 @@ export class Test extends Simulation {
                     // Shattering process
                     let i = 0;
                     for (i = 0; i < 4; i++) {
-                        this.bodies.push(new Body(this.shapes.cube, this.materials.plastic, s.times(1/4), U, true, 0)
+                        this.bodies.push(new Body(this.shapes.cube, this.materials.plastic, s.times(1/9), U, true, 0)
                             .emplace(b.drawn_location,
                                 vec3(0, 1, 0).randomized(2).normalized().times(3), Math.random()));
                     }
@@ -466,6 +475,9 @@ export class Test extends Simulation {
 
     // when mouse is clicked, throw an object
     throw_object(e, pos, context, program_state) {
+        if (this.drop) {
+            return;
+        }
         let pos_ndc_far = vec4(pos[0], pos[1], 1.0, 1.0);
         let center_ndc_near = vec4(0.0, 0.0, 0.0, 1.0);
 
@@ -477,7 +489,7 @@ export class Test extends Simulation {
         let center_world_near = Mat4.inverse(P.times(V)).times(center_ndc_near);
         let camera_pos = Mat4.inverse(P.times(W)).times(center_ndc_near);
         let dir = W.times(pos_ndc_far).minus(W.times(center_ndc_near));
-        console.log(dir);
+        // console.log(dir);
 
         pos_world_far.scale_by(1 / pos_world_far[3]);
         center_world_near.scale_by(1 / center_world_near[3]);
@@ -486,8 +498,8 @@ export class Test extends Simulation {
         direction_world.scale_by(1/2);
         direction_world[1] = -direction_world[1];
 
-        console.log(center_world_near);
-        console.log(direction_world);
+        // console.log(center_world_near);
+        // console.log(direction_world);
 
         // convert to a translation matrix
         let a = Mat4.inverse(P.times(W));
@@ -495,12 +507,22 @@ export class Test extends Simulation {
         a[1] = vec4(0, 1, 0, a[1][3]);
         a[2] = vec4(0, 0, 1, a[2][3]);
         a[3] = vec4(0, 0, 0, a[3][3]);
-        console.log(a);
+        // console.log(a);
 
         let b = new Body(this.shapes.cube, this.materials.plastic, vec3(1, 1, 1), U, false, 0)
             .emplace(a, direction_world, 0);
         this.bodies.push(b);
-        console.log(b);
+        // console.log(b);
+    }
+
+    make_control_panel() {
+
+        // Switch to drop mode
+        this.key_triggered_button("Drop", ["x"], () => { this.drop = true; });
+
+        // Switch to throw mode
+        this.key_triggered_button("Throw", ["t"], () => { this.drop = false; });
+
     }
 
     display(context, program_state) {
@@ -511,8 +533,8 @@ export class Test extends Simulation {
             this.children.push(context.scratchpad.controls = new defs.Movement_Controls());
             this.children.push(new defs.Program_State_Viewer());
             // Define the global camera and projection matrices, which are stored in program_state.
-            program_state.set_camera(Mat4.translation(0, -10, 0));
-
+            program_state.set_camera(Mat4.translation(0, -10, -50)
+                                    .times(Mat4.rotation(Math.PI / 5, 1, 0, 0)));
             // add event listeners
             let canvas = context.canvas;
             const mouse_position = (e, rect = canvas.getBoundingClientRect()) =>
@@ -523,290 +545,14 @@ export class Test extends Simulation {
                 this.throw_object(e, mouse_position(e), program_state, context);
             });
         }
+
+
         program_state.projection_transform = Mat4.perspective(
             Math.PI / 4, context.width / context.height, 1, 100);
-
+    
         // *** Lights: *** Values of vector or point lights.
         const light_position = vec4(0, 20, 8, 1);
         program_state.lights = [new Light(light_position, color(1, 1, 1, 1), 100)];
     }
 
-}
-
-
-class Aurora_Test extends Simulation {
-    constructor() {
-        // constructor(): Scenes begin by populating initial values like the Shapes and Materials they'll need.
-        super();
-
-        // Shapes
-        this.shapes = {
-            donut: new defs.Torus(15, 15, [[0, 2], [0, 1]]),
-            cone: new defs.Closed_Cone(4, 10, [[0, 2], [0, 1]]),
-            capped: new defs.Capped_Cylinder(4, 12, [[0, 2], [0, 1]]),
-            ball: new defs.Subdivision_Sphere(3, [[0, 1], [0, 1]]),
-            cube: new defs.Cube(),
-            prism: new (defs.Capped_Cylinder.prototype.make_flat_shaded_version())(10, 10, [[0, 2], [0, 1]]),
-            gem: new (defs.Subdivision_Sphere.prototype.make_flat_shaded_version())(2),
-            donut2: new (defs.Torus.prototype.make_flat_shaded_version())(20, 20, [[0, 2], [0, 1]]),
-            room: new (defs.Cube.prototype.make_flat_shaded_version()),
-            wall: new (defs.Square.prototype.make_flat_shaded_version()),
-            square: new defs.Square(),
-        };
-
-        // Textures
-        this.textures = {
-            rgb: new Texture("assets/rgb.jpg"),
-            earth: new Texture("assets/earth.gif"),
-            stars: new Texture("assets/stars.png"),
-            text: new Texture("assets/text.png"),
-        }
-
-        // Materials
-        this.materials = {
-            plastic: new Material(new defs.Phong_Shader(),
-                {ambient: .4, diffusivity: .6, color: hex_color("#1a9ffa")}),
-            wallpaper: new Material(new defs.Phong_Shader(),
-                {ambient: 0.2, diffusivity: 1, color: hex_color("#c4aa7e")}),
-            stars: new Material(new defs.Phong_Shader(), {
-                ambient: .4, color: color(.4, .8, .4, 1),
-                texture: this.textures.stars
-            }),
-            inactive_color: new Material(new defs.Fake_Bump_Map(1), {
-                color: color(.5, .5, .5, 1), ambient: .2,
-                texture: this.textures.rgb
-            }),
-            active_color: new Material(new defs.Fake_Bump_Map(1), {
-                color: color(.5, 0, 0, 1), ambient: .5,
-                texture: this.textures.rgb
-            }),
-            bright: new Material(new defs.Phong_Shader(), {
-                color: color(0, 1, 0, .5), ambient: 1
-            }),
-            floor: new Material(new defs.Phong_Shader(1), {
-                ambient: .4, color: color(.4, .8, .4, 1),
-                texture: this.textures.stars
-            }),
-            wall: new Material(new defs.Phong_Shader(1), {
-                ambient: .4, color: color(.4, .8, .4, 1),
-                texture: this.textures.stars
-            }),
-        };
-
-        // Make simpler dummy shapes for representing all other shapes during collisions:
-        this.colliders = [
-            {intersect_test: Body.intersect_sphere, points: new defs.Subdivision_Sphere(1), leeway: .5},
-            {intersect_test: Body.intersect_sphere, points: new defs.Subdivision_Sphere(2), leeway: .3},
-            {intersect_test: Body.intersect_cube, points: new defs.Cube(), leeway: .1}
-        ];
-
-        this.collider_selection = 0;
-        this.gravity = 20;
-        this.room_size = 75;
-
-        this.walls = [];
-    }
-
-    make_control_panel() {
-    }
-
-
-    // from discussion 1b slides
-    // adds event listeners for mouse
-    add_mouse_controls(canvas, program_state, context) {
-        this.mouse = {"from_center" : vec(0, 0)};
-        const mouse_position = (e, rect = canvas.getBoundingClientRect()) =>
-            vec((e.clientX - (rect.left + rect.right) / 2) / ((rect.left + rect.right) / 2),
-                (e.clientY - (rect.bottom + rect.top) / 2) / ((rect.bottom + rect.top) / 2));
-
-        document.addEventListener("mouseup", e => {
-            this.mouse.anchor = undefined;
-        });
-        canvas.addEventListener("mousedown", e => {
-            e.preventDefault();
-            this.mouse.anchor = mouse_position(e);
-
-            this.throw_object(e, mouse_position(e), program_state, context)
-            console.log(mouse_position(e));
-        });
-        canvas.addEventListener("mousemove", e => {
-            e.preventDefault();
-            this.mouse.anchor = mouse_position(e);
-        });
-        canvas.addEventListener("mouseup", e => {
-            if (!this.mouse.anchor)
-                this.mouse.from_center.scale_by(0);
-        });
-    }
-
-    // returns a height given the initial height and the time elapsed (in seconds) from the initial
-    // drop that simulates a bouncing motion
-    get_height_at_time(init_height, init_velocity, time_elapsed) {
-        // can adjust this
-        let max_bounces = init_height;
-
-        // decrease max height over time
-        let max_height = Math.max(init_height - time_elapsed, 0);
-        let max_velocity = Math.sqrt(2 * this.gravity * max_height);
-        let period = 2 / this.gravity * max_velocity;
-
-        // stop bouncing after max_bounces
-        if ((time_elapsed + (1 / 2 * period)) / (period) > max_bounces) {
-            return 0;
-        }
-
-        // otherwise, calculate the height at time t
-        let t = (time_elapsed + (1 / 2 * period)) % (period);
-        let h = Math.max(- 1 / 2 * this.gravity * t ** 2 + max_velocity * t, 0);
-        return h;
-    }
-
-    // when mouse is clicked, throw an object
-    throw_object(e, pos, context, program_state) {
-        let pos_ndc_far = vec4(pos[0], pos[1], 1.0, 1.0);
-        let center_ndc_near = vec4(0.0, 0.0, 0.0, 1.0);
-
-        let P = program_state.program_state.projection_transform;
-        let V = program_state.program_state.camera_transform;
-        let W = program_state.program_state.camera_inverse;
-
-        let pos_world_far = Mat4.inverse(P.times(V)).times(pos_ndc_far);
-        let center_world_near = Mat4.inverse(P.times(V)).times(center_ndc_near);
-        let camera_pos = Mat4.inverse(P.times(W)).times(center_ndc_near);
-        let dir = W.times(pos_ndc_far).minus(W.times(center_ndc_near));
-        console.log(dir);
-
-        pos_world_far.scale_by(1 / pos_world_far[3]);
-        center_world_near.scale_by(1 / center_world_near[3]);
-        camera_pos.scale_by(1 / camera_pos[3]);
-        let direction_world = pos_world_far.minus(center_world_near);
-        direction_world.scale_by(1/2);
-        direction_world[1] = -direction_world[1];
-
-        console.log(center_world_near);
-        console.log(direction_world);
-
-        // convert to a translation matrix
-        let a = Mat4.inverse(P.times(W));
-        a[0] = vec4(1, 0, 0, a[0][3]);
-        a[1] = vec4(0, 1, 0, a[1][3]);
-        a[2] = vec4(0, 0, 1, a[2][3]);
-        a[3] = vec4(0, 0, 0, a[3][3]);
-        console.log(a);
-        let b = new Body(this.shapes.cube, this.materials.plastic, vec3(1, 1, 1))
-            .emplace(a, direction_world, 0);
-        let object = {
-            body: b,
-            start_time: program_state.program_state.animation_time,
-            end_time: program_state.program_state.animation_time + 10000,
-        }
-        this.bodies.push(object);
-        console.log(object);
-    }
-
-
-    display(context, program_state) {
-        // display(): Draw everything else in the scene besides the moving bodies.
-        super.display(context, program_state);
-
-        // Setup -- This part sets up the scene's overall camera matrix, projection matrix, and lights:
-        if (!context.scratchpad.controls) {
-            this.children.push(context.scratchpad.controls = new defs.Movement_Controls());
-            // Define the global camera and projection matrices, which are stored in program_state.
-            program_state.set_camera(Mat4.translation(0, -5, 0));
-
-            // add event listeners
-            let canvas = context.canvas;
-            const mouse_position = (e, rect = canvas.getBoundingClientRect()) =>
-                vec((e.clientX - (rect.left + rect.right) / 2) / ((rect.left + rect.right) / 2),
-                    (e.clientY - (rect.bottom + rect.top) / 2) / ((rect.bottom + rect.top) / 2));
-            canvas.addEventListener("mousedown", e => {
-                e.preventDefault();
-                this.throw_object(e, mouse_position(e), program_state, context);
-            });
-
-            // create room
-            // floor
-            let floor_transform = Mat4.rotation(Math.PI / 2, 1, 0, 0)
-                .times(Mat4.scale(this.room_size, this.room_size, 1))
-                .times(Mat4.translation(0, 0, -1));
-            this.walls.push(new Body(this.shapes.square, this.materials.floor, vec3(1, 1 + Math.random(), 1))
-                .emplace(floor_transform, vec3(0, 0, 0), 0));
-
-            // walls
-            let wall_transform = Mat4.scale(this.room_size, this.room_size, 1)
-                .times(Mat4.translation(0, 0, -1));
-            this.walls.push(new Body(this.shapes.square, this.materials.wall, vec3(1, 1 + Math.random(), 1))
-                .emplace(Mat4.translation(0, this.room_size / 2, this.room_size / 2).times(wall_transform),
-                    vec3(0, 0, 0), 0));
-            this.walls.push(new Body(this.shapes.square, this.materials.wall, vec3(1, 1 + Math.random(), 1))
-                .emplace(Mat4.translation(0, this.room_size / 2, -this.room_size / 2).times(wall_transform),
-                    vec3(0, 0, 0), 0));
-            wall_transform = Mat4.rotation(Math.PI / 2, 0, 1, 0).times(wall_transform);
-            this.walls.push(new Body(this.shapes.square, this.materials.wall, vec3(1, 1 + Math.random(), 1))
-                .emplace(Mat4.translation(this.room_size / 2, this.room_size / 2, 0).times(wall_transform),
-                    vec3(0, 0, 0), 0));
-            this.walls.push(new Body(this.shapes.square, this.materials.wall, vec3(1, 1 + Math.random(), 1))
-                .emplace(Mat4.translation(-this.room_size / 2, this.room_size / 2, 0).times(wall_transform),
-                    vec3(0, 0, 0), 0));
-
-        }
-
-        program_state.projection_transform = Mat4.perspective(
-            Math.PI / 4, context.width / context.height, 1, 100);
-
-        // *** Lights: *** Values of vector or point lights.
-        const light_position = vec4(0, 20, 8, 1);
-        program_state.lights = [new Light(light_position, color(1, 1, 1, 1), 100)];
-
-        const t = program_state.animation_time;
-        const dt = program_state.animation_delta_time;
-
-        const {points, leeway} = this.colliders[this.collider_selection];
-        const size = vec3(1 + leeway, 1 + leeway, 1 + leeway);
-
-        for (let wall of this.walls) {
-            points.draw(context, program_state, wall.drawn_location, wall.material);
-        }
-
-        this.bodies = this.bodies.filter(b => b.end_time > t);
-        const collider = this.colliders[this.collider_selection];
-        if (this.bodies.length > 0) {
-            for (let i = 0; i < this.bodies.length; i++) {
-                let obj = this.bodies[i].body;
-
-                // collision detection
-
-                // gravity
-                obj.linear_velocity[1] -= this.gravity * 1/100;
-
-                // hit floor
-                if (obj.center[1] < 1 && obj.linear_velocity[1] < 0) {
-                    obj.linear_velocity[1] *= -.8;
-                }
-                // // hit left wall
-                // if (obj.center[0] < -this.room_size / 2 && obj.linear_velocity[0] < 0) {
-                //     obj.linear_velocity[0] *= -.8;
-                // }
-                // // hit backward wall
-                // if (obj.center[2] > this.room_size / 2 && obj.linear_velocity[2] > 0) {
-                //     obj.linear_velocity[2] *= -.8;
-                // }
-                // // hit forward wall
-                // if (obj.center[2] < -this.room_size / 2 && obj.linear_velocity[2] < 0) {
-                //     console.log("bounce")
-                //     obj.linear_velocity[2] *= -.8;
-                // }
-                // console.log("drew box")
-                obj.shape.draw(context, program_state, obj.drawn_location, obj.material);
-                obj.advance(1/1000);
-                obj.blend_state(t - this.bodies[i].start_time);
-                // console.log(obj.center);
-                // console.log(obj.drawn_location);
-            }
-
-        }
-
-        // TODO:  Draw your entire scene here.  Use this.draw_box( graphics_state, model_transform ) to call your helper.
-    }
 }
