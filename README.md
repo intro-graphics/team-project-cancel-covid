@@ -6,7 +6,21 @@
 
 Our project idea was to create a room with objects you could smash over and over. We’re basically taking the idea of a rage room (rooms that people pay to use to smash objects for anger therapy) but trying to implement it in a virtual environment. For starters, this means using multiple complex features, such as physics, collision detection, and a shattering effect of the initial object. The shattering effect would have yielded much potential if we could have expanded to using multiple different frameworks such as three.js or perhaps integrated Blender into tiny-graphics.js.
 
+The inspiration for this came from different games, but primarily Garry's Mod served as an inspiration. In its ideal form, this demo would have included a plethora of features, like 
+- sound effects
+- more accurate physics for different object types with multiple parameters
+    - friction coefficients
+    - mass/density
+- complex breaking and shattering of the 3D objects
+- reflection coefficients for shiny materials
+- etc.
+However this would require the extensive use of a software like Blender to create and edit the models, especially when it comes to the breaking points.
 
+What we see in the screenshots below are the inital setup of the room. We created the room using the Body class included in tiny-graphics.js. We downloaded some jpgs and formatted them all to be 512 x 512 pixels, then we imported them as textures and then added them to our materials class. After adding it to the Body class, we adjusted the ambience and the specularity, and lined it up. There were some initial issues where the walls were off by 1, so through trial and error we fixed them and lined them all up.
+
+The second and third screenshots show the two different objects that can be broken by being thrown or dropped.
+
+The GIFs show the actual dropping and throwing respectively, and the way the object randomly breaks and gets smaller and smaller. There were many different ways we could have implemented this but this was the most we could do before our hardware started introducting too much lagging.
 
 
 ![](doc/room.png)
