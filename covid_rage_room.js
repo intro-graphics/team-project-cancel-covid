@@ -481,6 +481,13 @@ export class Rage_Room extends Simulation {
 
                     // Collided with the wall (what kind of wall)
                     switch(w.temporary) {
+                        // R for roof
+                        case R: {
+                            if (b.linear_velocity[1] > 0)
+                                b.linear_velocity[1] *= -.8;
+                            break;
+                        }
+
                         // F for floor
                         case F: {
                             if (b.linear_velocity[1] < 0)
