@@ -381,6 +381,8 @@ export class Rage_Room extends Simulation {
         this.drop = true;
         this.current_shape = this.shapes.teapot;
         this.current_material = this.materials.bumps;
+        this.debris_shape = this.shapes.cube;
+        this.password = "";
 
         this.shapes_list = ["teapot", "cube", "amogus", "igloo"];
         this.materials_list = ["bumps", "plastic", "amogus", "amogus"];
@@ -528,7 +530,7 @@ export class Rage_Room extends Simulation {
                     // Shattering process
                     let i = 0;
                     for (i = 0; i < 4; i++) {
-                        this.bodies.push(new Body(this.shapes.cube, this.materials.plastic, s.times(1/9), U, true, 0)
+                        this.bodies.push(new Body(this.debris_shape, this.materials.plastic, s.times(1/9), U, true, 0)
                             .emplace(b.drawn_location,
                                 vec3(0, 1, 0).randomized(2).normalized().times(3), Math.random()));
                     }
@@ -651,6 +653,14 @@ export class Rage_Room extends Simulation {
                 }
             });
 
+            // secret!!
+            document.addEventListener("keydown", e => {
+                e.preventDefault();
+                if (e.code === "KeyH" ) {
+                    console.log("teapots");
+                    this.debris_shape = this.shapes.teapot;
+                }
+            });
         }
 
 
